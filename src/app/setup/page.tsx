@@ -19,21 +19,38 @@ export default function SetupPage() {
     setError("");
     setLoading(true);
 
-    const res = await fetch("/api/setup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
-    });
+    try {
+      const res = await fetch("/api/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
 
-    if (!res.ok) {
       const data = await res.json();
-      setError(data.error || "Setup failed.");
-      setLoading(false);
-      return;
-    }
 
-    await signIn("credentials", { email, password, redirect: false });
-    router.push("/dashboard");
+      if (!res.ok) {
+        setError(data.error || "Setup failed.");
+        setLoading(false);
+        return;
+      }
+
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Account created but sign-in failed. Try logging in manually.");
+        setLoading(false);
+        return;
+      }
+
+      router.push("/dashboard");
+    } catch (err) {
+      setError("Could not reach the server. Check your connection and try again.");
+      setLoading(false);
+    }
   }
 
   return (
