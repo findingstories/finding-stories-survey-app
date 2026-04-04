@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum QuestionType {
+  SHORT_TEXT
+  LONG_TEXT
+  MULTIPLE_CHOICE
+  CHECKBOX
+  RATING
+  LIKERT
+}
+
+model User {
+  id              String          @id @default(cuid())
+  name            String
+  email           String          @unique
+  passwordHash    String
+  role            Role            @default(MEMBER)
+  createdAt       DateTime        @default(now())
+  questionnaires  Questionnaire[]
+  invitationsSent Invitation[]    @relation("InvitedBy")
+}
+
+model Invitation {
+  id          String    @id @default(cuid())
+  email       String
+  token       String    @unique
+  invitedById String
+  invitedBy   User      @relation("InvitedBy", fields: [invitedById], references: [id])
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model Questionnaire {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  slug        String     @unique
+  isOpen      Boolean    @default(true)
+  createdById String
+  createdBy   User       @relation(fields: [createdById], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  questions   Question[]
+  responses   Response[]
+}
+
+model Question {
+  id              String        @id @default(cuid())
+  questionnaireId String
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  type            QuestionType
+  text            String
+  required        Boolean       @default(false)
+  order           Int
+  options         Json?
+  config          Json?
+  answers         Answer[]
+}
+
+model Response {
+  id              String        @id @default(cuid())
+  questionnaireId String
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  submittedAt     DateTime      @default(now())
+  answers         Answer[]
+}
+
+model Answer {
+  id              String   @id @default(cuid())
+  responseId      String
+  response        Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  questionId      String
+  question        Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  textValue       String?
+  selectedOptions Json?
+  numericValue    Float?
+}
