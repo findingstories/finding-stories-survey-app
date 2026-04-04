@@ -40,15 +40,17 @@ In Railway service → **Settings** → **Build & Deploy**:
 | **Start command** | `npm start` |
 | **Release command** | `npx prisma migrate deploy` |
 
-The **Release command** runs after build but before the app starts, applying database migrations.
+`npm run build` runs `prisma generate` (regenerates the client from schema) then `next build`.
+The **Release command** applies any pending database migrations before the server starts.
 
 ## 6. Deploy
 
 Push to your main branch (or click **Deploy** in Railway). Railway will:
 1. Install dependencies
-2. Run `prisma migrate deploy` to apply schema
+2. Generate the Prisma client (`prisma generate`)
 3. Build the Next.js app
-4. Start the server
+4. Run `prisma migrate deploy` to apply schema migrations
+5. Start the server
 
 ## 7. First run — create your admin account
 
