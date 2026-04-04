@@ -26,10 +26,18 @@ export default function SetupPage() {
         body: JSON.stringify({ name, email, password }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: { error?: string } = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        setError(`Server error (${res.status}): ${text.slice(0, 200)}`);
+        setLoading(false);
+        return;
+      }
 
       if (!res.ok) {
-        setError(data.error || "Setup failed.");
+        setError(data.error || `Setup failed (${res.status}).`);
         setLoading(false);
         return;
       }
@@ -41,14 +49,14 @@ export default function SetupPage() {
       });
 
       if (result?.error) {
-        setError("Account created but sign-in failed. Try logging in manually.");
+        setError("Account created but sign-in failed. Try logging in at /login.");
         setLoading(false);
         return;
       }
 
       router.push("/dashboard");
     } catch (err) {
-      setError("Could not reach the server. Check your connection and try again.");
+      setError(`Network error: ${err instanceof Error ? err.message : String(err)}`);
       setLoading(false);
     }
   }

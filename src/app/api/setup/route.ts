@@ -11,30 +11,35 @@ const schema = z.object({
 
 // Only available if no users exist yet (first-run setup)
 export async function POST(request: NextRequest) {
-  const count = await prisma.user.count();
-  if (count > 0) {
-    return Response.json(
-      { error: "Setup already complete." },
-      { status: 403 }
-    );
+  try {
+    const count = await prisma.user.count();
+    if (count > 0) {
+      return Response.json(
+        { error: "Setup already complete." },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) {
+      return Response.json({ error: "Invalid input" }, { status: 400 });
+    }
+
+    const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+
+    const user = await prisma.user.create({
+      data: {
+        name: parsed.data.name,
+        email: parsed.data.email,
+        passwordHash,
+        role: "ADMIN",
+      },
+    });
+
+    return Response.json({ id: user.id, email: user.email }, { status: 201 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return Response.json({ error: message }, { status: 500 });
   }
-
-  const body = await request.json();
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return Response.json({ error: "Invalid input" }, { status: 400 });
-  }
-
-  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
-
-  const user = await prisma.user.create({
-    data: {
-      name: parsed.data.name,
-      email: parsed.data.email,
-      passwordHash,
-      role: "ADMIN",
-    },
-  });
-
-  return Response.json({ id: user.id, email: user.email }, { status: 201 });
 }
