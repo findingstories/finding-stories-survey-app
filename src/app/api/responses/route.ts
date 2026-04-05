@@ -73,40 +73,60 @@ export async function POST(request: NextRequest) {
     ? (questionnaire.alertEmails as string[])
     : [];
 
-  if (alertEmails.length > 0 && process.env.RESEND_API_KEY) {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
-    const resultsUrl = `${baseUrl}/questionnaires/${questionnaire.id}/results`;
+  const resendKey = process.env.RESEND_API_KEY;
+  const resendFrom = process.env.RESEND_FROM;
 
-    // Build a simple answer summary
-    const answerRows = parsed.data.answers.map((a) => {
-      const question = questionnaire.questions.find((q) => q.id === a.questionId);
-      const questionText = question?.text ?? a.questionId;
-      const answerText =
-        a.textValue ??
-        (a.selectedOptions ? a.selectedOptions.join(", ") : null) ??
-        (a.numericValue != null ? String(a.numericValue) : "—");
-      return `<tr><td style="padding:6px 12px;border-bottom:1px solid #e7e5e4;color:#57534e;font-size:13px">${questionText}</td><td style="padding:6px 12px;border-bottom:1px solid #e7e5e4;color:#1c1917;font-size:13px">${answerText}</td></tr>`;
-    });
+  if (alertEmails.length > 0 && resendKey && resendFrom) {
+    try {
+      const resend = new Resend(resendKey);
+      const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
+      const resultsUrl = `${baseUrl}/questionnaires/${questionnaire.id}/results`;
 
-    const html = `
-      <p style="font-family:sans-serif;color:#1c1917">A new response was submitted to <strong>${questionnaire.title}</strong>.</p>
-      <table style="border-collapse:collapse;width:100%;max-width:600px;font-family:sans-serif">
-        <thead><tr>
-          <th style="text-align:left;padding:6px 12px;background:#f5f5f4;font-size:12px;color:#78716c">Question</th>
-          <th style="text-align:left;padding:6px 12px;background:#f5f5f4;font-size:12px;color:#78716c">Answer</th>
-        </tr></thead>
-        <tbody>${answerRows.join("")}</tbody>
-      </table>
-      <p style="font-family:sans-serif;margin-top:16px"><a href="${resultsUrl}" style="color:#0d9488">View all responses →</a></p>
-    `;
+      const answerRows = parsed.data.answers.map((a) => {
+        const question = questionnaire.questions.find((q) => q.id === a.questionId);
+        const questionText = question?.text ?? a.questionId;
+        const answerText =
+          a.textValue ??
+          (a.selectedOptions?.length ? a.selectedOptions.join(", ") : null) ??
+          (a.numericValue != null ? String(a.numericValue) : "—");
+        return `<tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#57534e;font-size:13px;vertical-align:top">${questionText}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#1c1917;font-size:13px;vertical-align:top">${answerText}</td>
+        </tr>`;
+      });
 
-    await resend.emails.send({
-      from: process.env.RESEND_FROM ?? "alerts@updates.yourdomain.com",
-      to: alertEmails,
-      subject: `New response: ${questionnaire.title}`,
-      html,
-    });
+      const html = `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+          <p style="color:#1c1917;margin-bottom:16px">
+            A new response was submitted to <strong>${questionnaire.title}</strong>.
+          </p>
+          <table style="border-collapse:collapse;width:100%;border:1px solid #e7e5e4;border-radius:8px;overflow:hidden">
+            <thead>
+              <tr style="background:#f5f5f4">
+                <th style="text-align:left;padding:8px 12px;font-size:12px;color:#78716c;font-weight:600">Question</th>
+                <th style="text-align:left;padding:8px 12px;font-size:12px;color:#78716c;font-weight:600">Answer</th>
+              </tr>
+            </thead>
+            <tbody>${answerRows.join("")}</tbody>
+          </table>
+          <p style="margin-top:20px">
+            <a href="${resultsUrl}" style="display:inline-block;background:#1f9678;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-size:13px;font-weight:600">
+              View results →
+            </a>
+          </p>
+        </div>
+      `;
+
+      await resend.emails.send({
+        from: resendFrom,
+        to: alertEmails,
+        subject: `New response: ${questionnaire.title}`,
+        html,
+      });
+    } catch (err) {
+      // Log but don't fail the submission if email sending errors
+      console.error("Alert email failed:", err);
+    }
   }
 
   return Response.json({ id: response.id }, { status: 201 });
