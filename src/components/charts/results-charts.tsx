@@ -65,7 +65,7 @@ function QuestionSummary({
   }).length;
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 p-6">
+    <div className="bg-white rounded-xl border border-stone-200 p-4 sm:p-6">
       <div className="flex items-center gap-2 mb-1">
         <span className="text-xs font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full">
           {TYPE_LABELS[question.type]}
@@ -127,8 +127,8 @@ function ChoiceChart({
             <YAxis
               type="category"
               dataKey="name"
-              width={130}
-              tick={{ fontSize: 12, fill: "#292524" }}
+              width={100}
+              tick={{ fontSize: 11, fill: "#292524" }}
             />
             <Tooltip
               formatter={(v) => [

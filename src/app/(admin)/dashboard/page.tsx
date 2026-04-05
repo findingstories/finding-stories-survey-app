@@ -21,8 +21,8 @@ export default async function DashboardPage() {
   const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 sm:mb-8">
         <div>
           <h1 className="text-2xl font-semibold text-stone-900">
             Questionnaires
@@ -61,7 +61,7 @@ export default async function DashboardPage() {
           {questionnaires.map((q) => (
             <div
               key={q.id}
-              className="flex items-center justify-between px-6 py-4 hover:bg-stone-50/50 transition-colors"
+              className="flex items-center justify-between px-4 sm:px-6 py-4 hover:bg-stone-50/50 transition-colors"
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-1">

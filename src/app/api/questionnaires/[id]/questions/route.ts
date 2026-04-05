@@ -13,6 +13,7 @@ const questionSchema = z.object({
     "LIKERT",
   ]),
   text: z.string().min(1).max(500),
+  instructions: z.string().max(1000).nullable().optional(),
   required: z.boolean().optional().default(false),
   options: z.array(z.string()).optional(),
   config: z.record(z.string(), z.unknown()).optional(),

@@ -5,6 +5,7 @@ import { z } from "zod";
 
 const updateSchema = z.object({
   text: z.string().min(1).max(500).optional(),
+  instructions: z.string().max(1000).nullable().optional(),
   required: z.boolean().optional(),
   options: z.array(z.string()).optional(),
   config: z.record(z.string(), z.unknown()).optional(),

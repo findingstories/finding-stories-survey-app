@@ -35,7 +35,7 @@ export default async function ResponseDetailPage({
   if (!response || response.questionnaireId !== id) notFound();
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-3xl mx-auto">
       <div className="flex items-start justify-between mb-6">
         <div>
           <Link

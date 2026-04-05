@@ -17,8 +17,8 @@ export default async function TeamPage() {
   ]);
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-4 sm:p-8 max-w-3xl mx-auto">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 sm:mb-8">
         <h1 className="text-2xl font-semibold text-stone-900">Team</h1>
         {isAdmin && <InviteUserForm />}
       </div>

@@ -30,9 +30,9 @@ export default async function ResultsPage({
   if (!questionnaire) notFound();
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-6 sm:mb-8">
         <div>
           <Link
             href="/dashboard"

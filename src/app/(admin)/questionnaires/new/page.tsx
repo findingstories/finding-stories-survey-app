@@ -39,7 +39,7 @@ export default function NewQuestionnairePage() {
   }
 
   return (
-    <div className="p-8 max-w-2xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-2xl mx-auto">
       <Link
         href="/dashboard"
         className="inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700 mb-6"
@@ -52,7 +52,7 @@ export default function NewQuestionnairePage() {
         New questionnaire
       </h1>
 
-      <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-8">
+      <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-5 sm:p-8">
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <Input
             id="title"
