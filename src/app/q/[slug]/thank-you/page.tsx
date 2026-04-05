@@ -11,8 +11,12 @@ export default async function ThankYouPage({
 
   const questionnaire = await prisma.questionnaire.findUnique({
     where: { slug },
-    select: { title: true },
+    select: { title: true, completionMessage: true, showFillAgain: true },
   });
+
+  const message =
+    questionnaire?.completionMessage?.trim() ||
+    `Your response to ${questionnaire?.title ?? "the questionnaire"} has been recorded.`;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-stone-50 px-4">
@@ -21,19 +25,15 @@ export default async function ThankYouPage({
         <h1 className="text-2xl font-semibold text-stone-900 mb-3">
           Thank you!
         </h1>
-        <p className="text-stone-500 mb-6">
-          Your response to{" "}
-          <span className="font-medium text-stone-700">
-            {questionnaire?.title ?? "the questionnaire"}
-          </span>{" "}
-          has been recorded.
-        </p>
-        <Link
-          href={`/q/${slug}`}
-          className="text-sm text-brand-600 hover:underline"
-        >
-          Submit another response
-        </Link>
+        <p className="text-stone-500 mb-6">{message}</p>
+        {questionnaire?.showFillAgain && (
+          <Link
+            href={`/q/${slug}`}
+            className="text-sm text-brand-600 hover:underline"
+          >
+            Submit another response
+          </Link>
+        )}
       </div>
     </div>
   );

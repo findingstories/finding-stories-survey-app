@@ -95,6 +95,9 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions }: Pr
             {q.text}
             {q.required && <span className="text-red-500 ml-1">*</span>}
           </p>
+          {q.instructions && (
+            <p className="text-sm text-stone-500 mt-1">{q.instructions}</p>
+          )}
 
           {errors[q.id] && (
             <p className="text-xs text-red-600 mt-1 mb-3">{errors[q.id]}</p>
@@ -226,31 +229,45 @@ function RatingInput({
   const min = config.min ?? 1;
   const max = config.max ?? 5;
   const nums = Array.from({ length: max - min + 1 }, (_, i) => i + min);
+  const hasLabels = config.minLabel || config.maxLabel;
 
   return (
-    <div>
-      <div className="flex gap-2 flex-wrap">
-        {nums.map((n) => (
+    <div className="flex gap-2 flex-wrap">
+      {nums.map((n, idx) => {
+        const isFirst = idx === 0;
+        const isLast = idx === nums.length - 1;
+        const label = isFirst && config.minLabel
+          ? config.minLabel
+          : isLast && config.maxLabel
+          ? config.maxLabel
+          : null;
+        const selected = value === n;
+        return (
           <button
             key={n}
             type="button"
             onClick={() => onChange(n)}
-            className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
-              value === n
+            className={`rounded-lg text-sm font-medium transition-colors ${
+              hasLabels && (isFirst || isLast)
+                ? "px-3 py-2 min-w-[2.5rem]"
+                : "w-10 h-10"
+            } ${
+              selected
                 ? "bg-brand-600 text-white"
                 : "bg-stone-100 text-stone-700 hover:bg-stone-200"
             }`}
           >
-            {n}
+            {label ? (
+              <span className="flex flex-col items-center leading-tight">
+                <span>{n}</span>
+                <span className={`text-[10px] font-normal ${selected ? "text-white/80" : "text-stone-400"}`}>{label}</span>
+              </span>
+            ) : (
+              n
+            )}
           </button>
-        ))}
-      </div>
-      {(config.minLabel || config.maxLabel) && (
-        <div className="flex justify-between mt-2 text-xs text-stone-400">
-          <span>{config.minLabel}</span>
-          <span>{config.maxLabel}</span>
-        </div>
-      )}
+        );
+      })}
     </div>
   );
 }

@@ -8,6 +8,7 @@ export type Question = {
   questionnaireId: string;
   type: QuestionType;
   text: string;
+  instructions: string | null;
   required: boolean;
   order: number;
   options: unknown;
@@ -20,6 +21,9 @@ export type Questionnaire = {
   description: string | null;
   slug: string;
   isOpen: boolean;
+  completionMessage: string | null;
+  showFillAgain: boolean;
+  alertEmails: unknown;
   createdById: string;
   createdAt: Date;
   updatedAt: Date;

@@ -32,6 +32,10 @@ import {
   ToggleRight,
   Check,
   BarChart2,
+  Pencil,
+  X,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 interface Props {
@@ -41,12 +45,28 @@ interface Props {
 
 export function QuestionnaireEditor({ questionnaire, shareUrl }: Props) {
   const router = useRouter();
-  const [questions, setQuestions] = useState<Question[]>(
-    questionnaire.questions
-  );
+  const [questions, setQuestions] = useState<Question[]>(questionnaire.questions);
   const [isOpen, setIsOpen] = useState(questionnaire.isOpen);
   const [slug, setSlug] = useState(questionnaire.slug);
   const [editingSlug, setEditingSlug] = useState(false);
+
+  // Title / description editing
+  const [editingMeta, setEditingMeta] = useState(false);
+  const [title, setTitle] = useState(questionnaire.title);
+  const [description, setDescription] = useState(questionnaire.description ?? "");
+  const [savingMeta, setSavingMeta] = useState(false);
+
+  // Settings panel
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [completionMessage, setCompletionMessage] = useState(questionnaire.completionMessage ?? "");
+  const [showFillAgain, setShowFillAgain] = useState(questionnaire.showFillAgain);
+  const [alertEmailsRaw, setAlertEmailsRaw] = useState(
+    Array.isArray(questionnaire.alertEmails)
+      ? (questionnaire.alertEmails as string[]).join(", ")
+      : ""
+  );
+  const [savingSettings, setSavingSettings] = useState(false);
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -55,9 +75,7 @@ export function QuestionnaireEditor({ questionnaire, shareUrl }: Props) {
 
   const sensors = useSensors(
     useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   async function handleToggle() {
@@ -73,10 +91,7 @@ export function QuestionnaireEditor({ questionnaire, shareUrl }: Props) {
   }
 
   async function handleCopy() {
-    const currentUrl = shareUrl.replace(
-      questionnaire.slug,
-      slug
-    );
+    const currentUrl = shareUrl.replace(questionnaire.slug, slug);
     await navigator.clipboard.writeText(currentUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -96,24 +111,49 @@ export function QuestionnaireEditor({ questionnaire, shareUrl }: Props) {
     }, 800);
   }
 
+  async function handleSaveMeta() {
+    if (!title.trim()) return;
+    setSavingMeta(true);
+    await fetch(`/api/questionnaires/${questionnaire.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: title.trim(), description: description.trim() || null }),
+    });
+    setSavingMeta(false);
+    setEditingMeta(false);
+    router.refresh();
+  }
+
+  async function handleSaveSettings() {
+    setSavingSettings(true);
+    const emails = alertEmailsRaw
+      .split(/[,\n]+/)
+      .map((e) => e.trim())
+      .filter(Boolean);
+    await fetch(`/api/questionnaires/${questionnaire.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        completionMessage: completionMessage.trim() || null,
+        showFillAgain,
+        alertEmails: emails,
+      }),
+    });
+    setSavingSettings(false);
+  }
+
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
-
       const oldIndex = questions.findIndex((q) => q.id === active.id);
       const newIndex = questions.findIndex((q) => q.id === over.id);
-      const reordered = arrayMove(questions, oldIndex, newIndex).map(
-        (q, i) => ({ ...q, order: i })
-      );
+      const reordered = arrayMove(questions, oldIndex, newIndex).map((q, i) => ({ ...q, order: i }));
       setQuestions(reordered);
-
       await fetch("/api/questions/reorder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: reordered.map((q) => ({ id: q.id, order: q.order })),
-        }),
+        body: JSON.stringify({ items: reordered.map((q) => ({ id: q.id, order: q.order })) }),
       });
     },
     [questions]
@@ -125,9 +165,7 @@ export function QuestionnaireEditor({ questionnaire, shareUrl }: Props) {
   }
 
   function handleQuestionUpdated(updated: Question) {
-    setQuestions((prev) =>
-      prev.map((q) => (q.id === updated.id ? updated : q))
-    );
+    setQuestions((prev) => prev.map((q) => (q.id === updated.id ? updated : q)));
     setEditingId(null);
   }
 
@@ -135,12 +173,10 @@ export function QuestionnaireEditor({ questionnaire, shareUrl }: Props) {
     setQuestions((prev) => prev.filter((q) => q.id !== id));
   }
 
-  const currentShareUrl = `${shareUrl.substring(0, shareUrl.lastIndexOf("/") + 1)}${slug}`;
-
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-3xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700"
@@ -148,23 +184,19 @@ export function QuestionnaireEditor({ questionnaire, shareUrl }: Props) {
           <ArrowLeft className="w-4 h-4" />
           Dashboard
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href={`/questionnaires/${questionnaire.id}/results`}>
             <Button variant="secondary" size="sm">
               <BarChart2 className="w-4 h-4" />
-              Results
+              <span className="hidden sm:inline">Results</span>
             </Button>
           </Link>
           <button
             onClick={handleCopy}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-stone-100 text-stone-700 hover:bg-stone-200 transition-colors"
           >
-            {copied ? (
-              <Check className="w-4 h-4 text-brand-600" />
-            ) : (
-              <Link2 className="w-4 h-4" />
-            )}
-            {copied ? "Copied!" : "Copy link"}
+            {copied ? <Check className="w-4 h-4 text-brand-600" /> : <Link2 className="w-4 h-4" />}
+            <span className="hidden sm:inline">{copied ? "Copied!" : "Copy link"}</span>
           </button>
           <button
             onClick={handleToggle}
@@ -175,32 +207,57 @@ export function QuestionnaireEditor({ questionnaire, shareUrl }: Props) {
               color: isOpen ? "rgb(20 95 77)" : "rgb(87 83 78)",
             }}
           >
-            {isOpen ? (
-              <>
-                <ToggleRight className="w-4 h-4" />
-                Open
-              </>
-            ) : (
-              <>
-                <ToggleLeft className="w-4 h-4" />
-                Closed
-              </>
-            )}
+            {isOpen ? <><ToggleRight className="w-4 h-4" />Open</> : <><ToggleLeft className="w-4 h-4" />Closed</>}
           </button>
         </div>
       </div>
 
-      {/* Title & slug */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-stone-900 mb-3">
-          {questionnaire.title}
-        </h1>
-        {questionnaire.description && (
-          <p className="text-stone-500 mb-4">{questionnaire.description}</p>
+      {/* Title & description */}
+      <div className="bg-white rounded-xl border border-stone-200 p-5 mb-4">
+        {editingMeta ? (
+          <div className="flex flex-col gap-3">
+            <Input
+              label="Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Questionnaire title"
+            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-stone-700">Description (optional)</label>
+              <textarea
+                className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Brief description of this questionnaire"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" loading={savingMeta} onClick={handleSaveMeta}>Save</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setTitle(questionnaire.title); setDescription(questionnaire.description ?? ""); setEditingMeta(false); }}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-semibold text-stone-900">{title}</h1>
+              {description && <p className="text-stone-500 text-sm mt-1">{description}</p>}
+            </div>
+            <button
+              onClick={() => setEditingMeta(true)}
+              className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors flex-shrink-0"
+              title="Edit title & description"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          </div>
         )}
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-stone-400 font-mono">
+        {/* Slug row */}
+        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-stone-100">
+          <span className="text-xs text-stone-400 font-mono truncate">
             {shareUrl.replace(questionnaire.slug, "")}
           </span>
           {editingSlug ? (
@@ -212,30 +269,18 @@ export function QuestionnaireEditor({ questionnaire, shareUrl }: Props) {
               autoFocus
             />
           ) : (
-            <button
-              onClick={() => setEditingSlug(true)}
-              className="text-xs font-mono text-brand-600 hover:underline"
-            >
+            <button onClick={() => setEditingSlug(true)} className="text-xs font-mono text-brand-600 hover:underline">
               {slug}
             </button>
           )}
-          <Badge variant={isOpen ? "green" : "red"} className="ml-1">
-            {isOpen ? "Open" : "Closed"}
-          </Badge>
+          <Badge variant={isOpen ? "green" : "red"}>{isOpen ? "Open" : "Closed"}</Badge>
         </div>
       </div>
 
       {/* Questions */}
-      <div className="flex flex-col gap-3 mb-6">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={questions.map((q) => q.id)}
-            strategy={verticalListSortingStrategy}
-          >
+      <div className="flex flex-col gap-3 mb-4">
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={questions.map((q) => q.id)} strategy={verticalListSortingStrategy}>
             {questions.map((q) =>
               editingId === q.id ? (
                 <QuestionForm
@@ -275,10 +320,73 @@ export function QuestionnaireEditor({ questionnaire, shareUrl }: Props) {
       </div>
 
       {questions.length > 0 && (
-        <p className="text-xs text-stone-400 text-center">
+        <p className="text-xs text-stone-400 text-center mb-4">
           Drag questions to reorder · Changes save automatically
         </p>
       )}
+
+      {/* Survey settings */}
+      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <button
+          onClick={() => setSettingsOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-5 py-4 text-sm font-medium text-stone-700 hover:bg-stone-50 transition-colors"
+        >
+          Survey settings
+          {settingsOpen ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
+        </button>
+
+        {settingsOpen && (
+          <div className="px-5 pb-5 flex flex-col gap-5 border-t border-stone-100">
+            {/* Completion message */}
+            <div className="flex flex-col gap-1.5 pt-4">
+              <label className="text-sm font-medium text-stone-700">
+                Completion message
+              </label>
+              <p className="text-xs text-stone-400">Shown on the thank-you page after submission.</p>
+              <textarea
+                className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"
+                rows={3}
+                value={completionMessage}
+                onChange={(e) => setCompletionMessage(e.target.value)}
+                placeholder="Thank you for taking the time to fill this in. Your response has been recorded."
+              />
+            </div>
+
+            {/* Fill again */}
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showFillAgain}
+                onChange={(e) => setShowFillAgain(e.target.checked)}
+                className="w-4 h-4 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
+              />
+              <div>
+                <p className="text-sm font-medium text-stone-700">Show "Submit another response" link</p>
+                <p className="text-xs text-stone-400">Lets respondents submit multiple responses.</p>
+              </div>
+            </label>
+
+            {/* Alert emails */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-stone-700">
+                Alert email addresses
+              </label>
+              <p className="text-xs text-stone-400">Receive an email each time someone submits. Separate multiple addresses with commas.</p>
+              <textarea
+                className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"
+                rows={2}
+                value={alertEmailsRaw}
+                onChange={(e) => setAlertEmailsRaw(e.target.value)}
+                placeholder="alice@example.com, bob@example.com"
+              />
+            </div>
+
+            <Button size="sm" loading={savingSettings} onClick={handleSaveSettings} className="self-start">
+              Save settings
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

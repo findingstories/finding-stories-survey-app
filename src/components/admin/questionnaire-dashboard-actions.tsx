@@ -13,6 +13,7 @@ import {
   ToggleLeft,
   ToggleRight,
   Check,
+  Copy,
 } from "lucide-react";
 
 interface Props {
@@ -33,6 +34,7 @@ export function QuestionnaireDashboardActions({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
 
   async function handleCopy() {
     await navigator.clipboard.writeText(shareUrl);
@@ -49,6 +51,16 @@ export function QuestionnaireDashboardActions({
     });
     setToggling(false);
     router.refresh();
+  }
+
+  async function handleDuplicate() {
+    setDuplicating(true);
+    const res = await fetch(`/api/questionnaires/${id}/duplicate`, { method: "POST" });
+    setDuplicating(false);
+    if (res.ok) {
+      const data = await res.json();
+      router.push(`/questionnaires/${data.id}/edit`);
+    }
   }
 
   async function handleDelete() {
@@ -84,6 +96,15 @@ export function QuestionnaireDashboardActions({
         ) : (
           <ToggleLeft className="w-4 h-4" />
         )}
+      </button>
+
+      <button
+        onClick={handleDuplicate}
+        disabled={duplicating}
+        className="p-2 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors disabled:opacity-40"
+        title="Duplicate"
+      >
+        <Copy className="w-4 h-4" />
       </button>
 
       <Link

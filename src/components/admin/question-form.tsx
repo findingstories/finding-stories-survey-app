@@ -43,6 +43,7 @@ export function QuestionForm({
     (existingQuestion?.type as QuestionTypeName) ?? "SHORT_TEXT"
   );
   const [text, setText] = useState(existingQuestion?.text ?? "");
+  const [instructions, setInstructions] = useState(existingQuestion?.instructions ?? "");
   const [required, setRequired] = useState(existingQuestion?.required ?? false);
   const [options, setOptions] = useState<string[]>(
     Array.isArray(existingQuestion?.options)
@@ -75,7 +76,7 @@ export function QuestionForm({
     if (!text.trim()) return;
     setLoading(true);
 
-    const body: Record<string, unknown> = { type, text, required };
+    const body: Record<string, unknown> = { type, text, instructions: instructions.trim() || null, required };
     if (type === "MULTIPLE_CHOICE" || type === "CHECKBOX") {
       body.options = options.filter((o) => o.trim());
     }
@@ -136,6 +137,17 @@ export function QuestionForm({
         onChange={(e) => setText(e.target.value)}
         placeholder="e.g. How satisfied are you with our service?"
       />
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-stone-700">Instructions (optional)</label>
+        <textarea
+          className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"
+          rows={2}
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          placeholder="Additional guidance for respondents"
+        />
+      </div>
 
       {/* Options for choice questions */}
       {(type === "MULTIPLE_CHOICE" || type === "CHECKBOX") && (

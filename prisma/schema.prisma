@@ -22,14 +22,25 @@ enum QuestionType {
 }
 
 model User {
-  id              String          @id @default(cuid())
-  name            String
-  email           String          @unique
-  passwordHash    String
-  role            Role            @default(MEMBER)
-  createdAt       DateTime        @default(now())
-  questionnaires  Questionnaire[]
-  invitationsSent Invitation[]    @relation("InvitedBy")
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
+  passwordHash        String
+  role                Role                 @default(MEMBER)
+  createdAt           DateTime             @default(now())
+  questionnaires      Questionnaire[]
+  invitationsSent     Invitation[]         @relation("InvitedBy")
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 }
 
 model Invitation {
@@ -44,17 +55,20 @@ model Invitation {
 }
 
 model Questionnaire {
-  id          String     @id @default(cuid())
-  title       String
-  description String?
-  slug        String     @unique
-  isOpen      Boolean    @default(true)
-  createdById String
-  createdBy   User       @relation(fields: [createdById], references: [id])
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  questions   Question[]
-  responses   Response[]
+  id                String     @id @default(cuid())
+  title             String
+  description       String?
+  slug              String     @unique
+  isOpen            Boolean    @default(true)
+  completionMessage String?
+  showFillAgain     Boolean    @default(true)
+  alertEmails       Json?
+  createdById       String
+  createdBy         User       @relation(fields: [createdById], references: [id])
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  questions         Question[]
+  responses         Response[]
 }
 
 model Question {
@@ -63,6 +77,7 @@ model Question {
   questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
   type            QuestionType
   text            String
+  instructions    String?
   required        Boolean       @default(false)
   order           Int
   options         Json?

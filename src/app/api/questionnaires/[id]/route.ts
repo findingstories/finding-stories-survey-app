@@ -5,7 +5,7 @@ import { z } from "zod";
 
 const updateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
-  description: z.string().max(500).optional(),
+  description: z.string().max(500).nullable().optional(),
   slug: z
     .string()
     .min(1)
@@ -13,6 +13,9 @@ const updateSchema = z.object({
     .regex(/^[a-z0-9-]+$/)
     .optional(),
   isOpen: z.boolean().optional(),
+  completionMessage: z.string().max(1000).nullable().optional(),
+  showFillAgain: z.boolean().optional(),
+  alertEmails: z.array(z.string().email()).optional(),
 });
 
 export async function PATCH(
