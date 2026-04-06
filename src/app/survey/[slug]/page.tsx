@@ -1,6 +1,32 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { PublicQuestionnaireForm } from "@/components/public/questionnaire-form";
+import type { Metadata } from "next";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const questionnaire = await prisma.questionnaire.findUnique({
+    where: { slug },
+    select: { title: true, description: true },
+  });
+
+  const title = questionnaire?.title ?? "Survey";
+  const description = questionnaire?.description ?? "Please take a moment to complete this survey.";
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+    },
+  };
+}
 
 export default async function PublicQuestionnairePage({
   params,
