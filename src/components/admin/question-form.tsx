@@ -37,6 +37,7 @@ interface QuestionConfig {
   labels?: string[];
   style?: "buttons" | "stars";
   rows?: string[];
+  randomise?: boolean;
 }
 
 export function QuestionForm({
@@ -102,6 +103,7 @@ export function QuestionForm({
 
     if (type === "MULTIPLE_CHOICE" || type === "CHECKBOX" || type === "RANKING") {
       body.options = options.filter((o) => o.trim());
+      body.config = { randomise: config.randomise ?? false };
     }
     if (type === "MATRIX") {
       body.options = options.filter((o) => o.trim()); // columns
@@ -358,6 +360,19 @@ export function QuestionForm({
             </div>
           ))}
         </div>
+      )}
+
+      {/* Randomise toggle — choice and ranking types only */}
+      {(type === "MULTIPLE_CHOICE" || type === "CHECKBOX" || type === "RANKING") && (
+        <label className="flex items-center gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={config.randomise ?? false}
+            onChange={(e) => setConfig((c) => ({ ...c, randomise: e.target.checked }))}
+            className="w-4 h-4 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
+          />
+          <span className="text-sm text-stone-700">Randomise option order for each respondent</span>
+        </label>
       )}
 
       {/* Required toggle */}

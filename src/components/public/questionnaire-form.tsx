@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { Question } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -34,9 +34,36 @@ interface AnswerState {
   numericValue?: number;
 }
 
+function shuffled<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export function PublicQuestionnaireForm({ questionnaireId, slug, questions }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
+
+  // Compute shuffled option orders once on mount — never changes after that
+  const optionOrders = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const q of questions) {
+      const opts = Array.isArray(q.options) ? (q.options as string[]) : [];
+      const cfg = (q.config ?? {}) as { randomise?: boolean };
+      if (
+        (q.type === "MULTIPLE_CHOICE" || q.type === "CHECKBOX" || q.type === "RANKING") &&
+        cfg.randomise &&
+        opts.length > 0
+      ) {
+        map[q.id] = shuffled(opts);
+      }
+    }
+    return map;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // empty deps: only run once on mount
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -148,7 +175,7 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions }: Pr
 
             {(q.type === "MULTIPLE_CHOICE" || q.type === "CHECKBOX") && (
               <div className="flex flex-col gap-2.5">
-                {(Array.isArray(q.options) ? (q.options as string[]) : []).map((opt) => {
+                {(optionOrders[q.id] ?? (Array.isArray(q.options) ? (q.options as string[]) : [])).map((opt) => {
                   const selected = answers[q.id]?.selectedOptions?.includes(opt) ?? false;
                   return (
                     <label key={opt} className="flex items-center gap-3 cursor-pointer group">
@@ -211,7 +238,7 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions }: Pr
 
             {q.type === "RANKING" && (
               <RankingInput
-                options={Array.isArray(q.options) ? (q.options as string[]) : []}
+                options={optionOrders[q.id] ?? (Array.isArray(q.options) ? (q.options as string[]) : [])}
                 value={answers[q.id]?.selectedOptions}
                 onChange={(ordered) => setAnswer(q.id, { selectedOptions: ordered })}
               />
