@@ -7,7 +7,7 @@ const { auth } = NextAuth(authConfig);
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
-  const publicPaths = ["/login", "/invite/", "/q/", "/setup", "/forgot-password", "/reset-password", "/api/auth", "/api/setup", "/api/responses", "/api/invitations/", "/api/password-reset"];
+  const publicPaths = ["/login", "/invite/", "/survey/", "/setup", "/forgot-password", "/reset-password", "/api/auth", "/api/setup", "/api/responses", "/api/invitations/", "/api/password-reset"];
   const isPublic = publicPaths.some((p) => pathname.startsWith(p));
 
   if (!req.auth && !isPublic) {

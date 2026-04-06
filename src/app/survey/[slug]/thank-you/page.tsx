@@ -28,7 +28,7 @@ export default async function ThankYouPage({
         <p className="text-stone-500 mb-6">{message}</p>
         {questionnaire?.showFillAgain && (
           <Link
-            href={`/q/${slug}`}
+            href={`/survey/${slug}`}
             className="text-sm text-brand-600 hover:underline"
           >
             Submit another response

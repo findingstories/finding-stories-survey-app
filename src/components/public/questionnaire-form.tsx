@@ -134,7 +134,7 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions }: Pr
     });
 
     setSubmitting(false);
-    if (res.ok) router.push(`/q/${slug}/thank-you`);
+    if (res.ok) router.push(`/survey/${slug}/thank-you`);
   }
 
   return (

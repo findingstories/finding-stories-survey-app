@@ -21,7 +21,7 @@ export default async function EditPage({
   return (
     <QuestionnaireEditor
       questionnaire={questionnaire}
-      shareUrl={`${baseUrl}/q/${questionnaire.slug}`}
+      shareUrl={`${baseUrl}/survey/${questionnaire.slug}`}
     />
   );
 }

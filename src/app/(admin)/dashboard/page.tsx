@@ -83,7 +83,7 @@ export default async function DashboardPage() {
                 <QuestionnaireDashboardActions
                   id={q.id}
                   isOpen={q.isOpen}
-                  shareUrl={`${baseUrl}/q/${q.slug}`}
+                  shareUrl={`${baseUrl}/survey/${q.slug}`}
                   userRole={
                     (session?.user as { role?: string })?.role ?? "MEMBER"
                   }
