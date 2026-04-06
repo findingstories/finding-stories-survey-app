@@ -14,6 +14,10 @@ const QUESTION_TYPES = [
   { value: "CHECKBOX", label: "Checkboxes" },
   { value: "RATING", label: "Rating scale" },
   { value: "LIKERT", label: "Likert scale" },
+  { value: "NPS", label: "NPS" },
+  { value: "MATRIX", label: "Matrix" },
+  { value: "RANKING", label: "Ranking" },
+  { value: "DATE", label: "Date" },
 ] as const;
 
 type QuestionTypeName = (typeof QUESTION_TYPES)[number]["value"];
@@ -31,6 +35,8 @@ interface QuestionConfig {
   minLabel?: string;
   maxLabel?: string;
   labels?: string[];
+  style?: "buttons" | "stars";
+  rows?: string[];
 }
 
 export function QuestionForm({
@@ -50,38 +56,65 @@ export function QuestionForm({
       ? (existingQuestion.options as string[])
       : ["Option 1", "Option 2"]
   );
+  const existingConfig = (existingQuestion?.config as QuestionConfig) ?? {};
   const [config, setConfig] = useState<QuestionConfig>({
     min: 1,
     max: 5,
     minLabel: "",
     maxLabel: "",
+    style: "buttons",
     labels: ["Strongly disagree", "Disagree", "Neutral", "Agree", "Strongly agree"],
-    ...(existingQuestion?.config as QuestionConfig ?? {}),
+    rows: ["Row 1", "Row 2"],
+    ...existingConfig,
   });
   const [loading, setLoading] = useState(false);
 
   function addOption() {
     setOptions((prev) => [...prev, `Option ${prev.length + 1}`]);
   }
-
   function removeOption(i: number) {
     setOptions((prev) => prev.filter((_, idx) => idx !== i));
   }
-
   function updateOption(i: number, val: string) {
     setOptions((prev) => prev.map((o, idx) => (idx === i ? val : o)));
+  }
+
+  function addRow() {
+    setConfig((c) => ({ ...c, rows: [...(c.rows ?? []), `Row ${(c.rows ?? []).length + 1}`] }));
+  }
+  function removeRow(i: number) {
+    setConfig((c) => ({ ...c, rows: (c.rows ?? []).filter((_, idx) => idx !== i) }));
+  }
+  function updateRow(i: number, val: string) {
+    setConfig((c) => ({ ...c, rows: (c.rows ?? []).map((r, idx) => (idx === i ? val : r)) }));
   }
 
   async function handleSave() {
     if (!text.trim()) return;
     setLoading(true);
 
-    const body: Record<string, unknown> = { type, text, instructions: instructions.trim() || null, required };
-    if (type === "MULTIPLE_CHOICE" || type === "CHECKBOX") {
+    const body: Record<string, unknown> = {
+      type,
+      text,
+      instructions: instructions.trim() || null,
+      required,
+    };
+
+    if (type === "MULTIPLE_CHOICE" || type === "CHECKBOX" || type === "RANKING") {
       body.options = options.filter((o) => o.trim());
     }
+    if (type === "MATRIX") {
+      body.options = options.filter((o) => o.trim()); // columns
+      body.config = { rows: (config.rows ?? []).filter((r) => r.trim()) };
+    }
     if (type === "RATING") {
-      body.config = { min: config.min, max: config.max, minLabel: config.minLabel, maxLabel: config.maxLabel };
+      body.config = {
+        min: config.min,
+        max: config.max,
+        minLabel: config.minLabel,
+        maxLabel: config.maxLabel,
+        style: config.style ?? "buttons",
+      };
     }
     if (type === "LIKERT") {
       body.config = { labels: config.labels };
@@ -108,6 +141,8 @@ export function QuestionForm({
       onSaved(data);
     }
   }
+
+  const needsOptions = type === "MULTIPLE_CHOICE" || type === "CHECKBOX" || type === "RANKING";
 
   return (
     <div className="bg-white rounded-xl border-2 border-brand-200 p-5 flex flex-col gap-4">
@@ -149,22 +184,36 @@ export function QuestionForm({
         />
       </div>
 
-      {/* Options for choice questions */}
-      {(type === "MULTIPLE_CHOICE" || type === "CHECKBOX") && (
+      {/* NPS info */}
+      {type === "NPS" && (
+        <p className="text-xs text-stone-500 bg-stone-50 rounded-lg px-3 py-2">
+          Respondents choose a score from 0–10. Results will show the NPS score,
+          promoters (9–10), passives (7–8), and detractors (0–6).
+        </p>
+      )}
+
+      {/* Date info */}
+      {type === "DATE" && (
+        <p className="text-xs text-stone-500 bg-stone-50 rounded-lg px-3 py-2">
+          Respondents will see a date picker to select a specific date.
+        </p>
+      )}
+
+      {/* Options for choice / ranking questions */}
+      {needsOptions && (
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-medium text-stone-700">Options</p>
+          <p className="text-sm font-medium text-stone-700">
+            {type === "RANKING" ? "Items to rank" : "Options"}
+          </p>
           {options.map((opt, i) => (
             <div key={i} className="flex items-center gap-2">
               <input
                 className="flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 value={opt}
                 onChange={(e) => updateOption(i, e.target.value)}
-                placeholder={`Option ${i + 1}`}
+                placeholder={type === "RANKING" ? `Item ${i + 1}` : `Option ${i + 1}`}
               />
-              <button
-                onClick={() => removeOption(i)}
-                className="p-1.5 text-stone-400 hover:text-red-500 transition-colors"
-              >
+              <button onClick={() => removeOption(i)} className="p-1.5 text-stone-400 hover:text-red-500 transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -174,38 +223,118 @@ export function QuestionForm({
             className="flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 font-medium mt-1"
           >
             <Plus className="w-4 h-4" />
-            Add option
+            {type === "RANKING" ? "Add item" : "Add option"}
           </button>
         </div>
       )}
 
+      {/* Matrix config */}
+      {type === "MATRIX" && (
+        <>
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-stone-700">Rows (sub-questions)</p>
+            {(config.rows ?? []).map((row, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  className="flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  value={row}
+                  onChange={(e) => updateRow(i, e.target.value)}
+                  placeholder={`Row ${i + 1}`}
+                />
+                <button onClick={() => removeRow(i)} className="p-1.5 text-stone-400 hover:text-red-500 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={addRow}
+              className="flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 font-medium mt-1"
+            >
+              <Plus className="w-4 h-4" />
+              Add row
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-stone-700">Columns (answer options)</p>
+            {options.map((opt, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  className="flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  value={opt}
+                  onChange={(e) => updateOption(i, e.target.value)}
+                  placeholder={`Column ${i + 1}`}
+                />
+                <button onClick={() => removeOption(i)} className="p-1.5 text-stone-400 hover:text-red-500 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={addOption}
+              className="flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 font-medium mt-1"
+            >
+              <Plus className="w-4 h-4" />
+              Add column
+            </button>
+          </div>
+        </>
+      )}
+
       {/* Rating config */}
       {type === "RATING" && (
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Min value"
-            type="number"
-            value={config.min}
-            onChange={(e) => setConfig((c) => ({ ...c, min: +e.target.value }))}
-          />
-          <Input
-            label="Max value"
-            type="number"
-            value={config.max}
-            onChange={(e) => setConfig((c) => ({ ...c, max: +e.target.value }))}
-          />
-          <Input
-            label="Min label (optional)"
-            value={config.minLabel}
-            onChange={(e) => setConfig((c) => ({ ...c, minLabel: e.target.value }))}
-            placeholder="e.g. Very poor"
-          />
-          <Input
-            label="Max label (optional)"
-            value={config.maxLabel}
-            onChange={(e) => setConfig((c) => ({ ...c, maxLabel: e.target.value }))}
-            placeholder="e.g. Excellent"
-          />
+        <div className="flex flex-col gap-3">
+          {/* Style toggle */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-stone-700">Display style</label>
+            <div className="flex gap-2">
+              {(["buttons", "stars"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setConfig((c) => ({ ...c, style: s }))}
+                  className={cn(
+                    "px-4 py-1.5 rounded-full text-xs font-medium transition-colors border",
+                    config.style === s
+                      ? "bg-brand-600 text-white border-brand-600"
+                      : "bg-white text-stone-600 border-stone-200 hover:bg-stone-50"
+                  )}
+                >
+                  {s === "buttons" ? "Rectangles" : "Stars"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Min value"
+              type="number"
+              value={config.min}
+              onChange={(e) => setConfig((c) => ({ ...c, min: +e.target.value }))}
+            />
+            <Input
+              label="Max value"
+              type="number"
+              value={config.max}
+              onChange={(e) => setConfig((c) => ({ ...c, max: +e.target.value }))}
+            />
+            {config.style !== "stars" && (
+              <>
+                <Input
+                  label="Min label (optional)"
+                  value={config.minLabel}
+                  onChange={(e) => setConfig((c) => ({ ...c, minLabel: e.target.value }))}
+                  placeholder="e.g. Very poor"
+                />
+                <Input
+                  label="Max label (optional)"
+                  value={config.maxLabel}
+                  onChange={(e) => setConfig((c) => ({ ...c, maxLabel: e.target.value }))}
+                  placeholder="e.g. Excellent"
+                />
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -222,9 +351,7 @@ export function QuestionForm({
                 onChange={(e) =>
                   setConfig((c) => ({
                     ...c,
-                    labels: (c.labels ?? []).map((l, j) =>
-                      j === i ? e.target.value : l
-                    ),
+                    labels: (c.labels ?? []).map((l, j) => (j === i ? e.target.value : l)),
                   }))
                 }
               />

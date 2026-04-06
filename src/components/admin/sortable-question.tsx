@@ -15,6 +15,10 @@ const TYPE_LABELS: Record<string, string> = {
   CHECKBOX: "Checkboxes",
   RATING: "Rating",
   LIKERT: "Likert",
+  NPS: "NPS",
+  MATRIX: "Matrix",
+  RANKING: "Ranking",
+  DATE: "Date",
 };
 
 interface Props {
