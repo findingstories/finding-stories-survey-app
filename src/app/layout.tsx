@@ -10,7 +10,7 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Finding Stories Survey App",
+  title: "Finding Stories - Survey App",
   description: "Create and analyse market research questionnaires",
 };
 
