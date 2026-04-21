@@ -37,8 +37,12 @@ export async function POST(request: NextRequest) {
 
   const { questionnaireId, slug, answers } = parsed.data;
 
-  const errorUrl = (msg: string) =>
-    NextResponse.redirect(new URL(`/survey/${slug}?error=${encodeURIComponent(msg)}`, request.url), { status: 303 });
+  const errorUrl = (msg: string) => {
+    const url = request.nextUrl.clone();
+    url.pathname = `/survey/${slug}`;
+    url.search = `?error=${encodeURIComponent(msg)}`;
+    return NextResponse.redirect(url, { status: 303 });
+  };
 
   const questionnaire = await prisma.questionnaire.findUnique({
     where: { id: questionnaireId },
@@ -137,5 +141,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(new URL(`/survey/${slug}/thank-you`, request.url), { status: 303 });
+  const successUrl = request.nextUrl.clone();
+  successUrl.pathname = `/survey/${slug}/thank-you`;
+  successUrl.search = "";
+  return NextResponse.redirect(successUrl, { status: 303 });
 }
