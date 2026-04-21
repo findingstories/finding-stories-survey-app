@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import type { Question } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,7 @@ interface Props {
   questionnaireId: string;
   slug: string;
   questions: Question[];
+  initialError?: string;
 }
 
 interface AnswerState {
@@ -42,7 +43,8 @@ function shuffled<T>(arr: T[]): T[] {
   return a;
 }
 
-export function PublicQuestionnaireForm({ questionnaireId, slug, questions }: Props) {
+export function PublicQuestionnaireForm({ questionnaireId, slug, questions, initialError }: Props) {
+  const payloadRef = useRef<HTMLInputElement>(null);
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
 
   // Compute shuffled option orders once on mount — never changes after that
@@ -62,9 +64,7 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions }: Pr
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // empty deps: only run once on mount
-  const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   function setAnswer(qId: string, update: AnswerState) {
     setAnswers((prev) => ({ ...prev, [qId]: { ...prev[qId], ...update } }));
@@ -87,9 +87,7 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions }: Pr
     setAnswer(qId, { selectedOptions: current });
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     const newErrors: Record<string, string> = {};
     for (const q of questions) {
       if (!q.required) continue;
@@ -112,51 +110,34 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions }: Pr
         }
       }
     }
+
     if (Object.keys(newErrors).length > 0) {
+      e.preventDefault();
       setErrors(newErrors);
       return;
     }
 
-    setSubmitting(true);
-    setSubmitError(null);
-
-    const payload = {
-      questionnaireId,
-      answers: questions
-        .filter((q) => answers[q.id])
-        .map((q) => ({ questionId: q.id, ...answers[q.id] })),
-    };
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-    try {
-      const res = await fetch("/api/responses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
+    // Populate the hidden payload input and let the browser POST natively
+    if (payloadRef.current) {
+      payloadRef.current.value = JSON.stringify({
+        questionnaireId,
+        slug,
+        answers: questions
+          .filter((q) => answers[q.id])
+          .map((q) => ({ questionId: q.id, ...answers[q.id] })),
       });
-
-      if (res.ok) {
-        window.location.href = `/survey/${slug}/thank-you`;
-        return;
-      }
-      setSubmitError("Something went wrong. Please try again.");
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        setSubmitError("The request timed out. Please check your connection and try again.");
-      } else {
-        setSubmitError("Unable to submit. Please check your connection and try again.");
-      }
-    } finally {
-      clearTimeout(timeoutId);
-      setSubmitting(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+    <form
+      method="POST"
+      action="/api/submit-survey"
+      encType="application/x-www-form-urlencoded"
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-6"
+    >
+      <input ref={payloadRef} type="hidden" name="payload" />
       {questions.map((q, i) => (
         <div key={q.id} className="bg-white rounded-xl border border-stone-200 p-6">
           <p className="text-base font-medium text-stone-900 mb-1">
@@ -282,10 +263,10 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions }: Pr
       ))}
 
       <div className="flex flex-col items-end gap-2 pt-2">
-        {submitError && (
-          <p className="text-sm text-red-600">{submitError}</p>
+        {initialError && (
+          <p className="text-sm text-red-600">{initialError}</p>
         )}
-        <Button type="submit" loading={submitting} size="lg">
+        <Button type="submit" size="lg">
           Submit
         </Button>
       </div>

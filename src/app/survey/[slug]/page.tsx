@@ -30,10 +30,13 @@ export async function generateMetadata({
 
 export default async function PublicQuestionnairePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { slug } = await params;
+  const { error } = await searchParams;
 
   const questionnaire = await prisma.questionnaire.findUnique({
     where: { slug },
@@ -76,6 +79,7 @@ export default async function PublicQuestionnairePage({
           questionnaireId={questionnaire.id}
           slug={slug}
           questions={questionnaire.questions}
+          initialError={error}
         />
       </div>
     </div>
