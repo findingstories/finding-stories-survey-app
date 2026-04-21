@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { Resend } from "resend";
@@ -38,12 +38,11 @@ export async function POST(request: NextRequest) {
 
   const { questionnaireId, slug, answers } = parsed.data;
 
-  const errorUrl = (msg: string) => {
-    const url = request.nextUrl.clone();
-    url.pathname = `/survey/${slug}`;
-    url.search = `?error=${encodeURIComponent(msg)}`;
-    return NextResponse.redirect(url, { status: 303 });
-  };
+  const errorUrl = (msg: string) =>
+    new Response(null, {
+      status: 303,
+      headers: { Location: `/survey/${slug}?error=${encodeURIComponent(msg)}` },
+    });
 
   const questionnaire = await prisma.questionnaire.findUnique({
     where: { id: questionnaireId },
@@ -142,8 +141,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const successUrl = request.nextUrl.clone();
-  successUrl.pathname = `/survey/${slug}/thank-you`;
-  successUrl.search = "";
-  return NextResponse.redirect(successUrl, { status: 303 });
+  return new Response(null, {
+    status: 303,
+    headers: { Location: `/survey/${slug}/thank-you` },
+  });
 }
