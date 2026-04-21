@@ -20,9 +20,10 @@ export async function POST(request: NextRequest) {
   let raw: unknown;
 
   try {
-    const formData = await request.formData();
-    const payloadStr = formData.get("payload");
-    if (!payloadStr || typeof payloadStr !== "string") {
+    const text = await request.text();
+    const params = new URLSearchParams(text);
+    const payloadStr = params.get("payload");
+    if (!payloadStr) {
       return new Response("Invalid submission", { status: 400 });
     }
     raw = JSON.parse(payloadStr);
