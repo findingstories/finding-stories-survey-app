@@ -5,6 +5,7 @@ import type { Question } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { OTHER_OPTION } from "@/lib/answers";
 import { Plus, X } from "lucide-react";
 
 const QUESTION_TYPES = [
@@ -38,6 +39,7 @@ interface QuestionConfig {
   style?: "buttons" | "stars";
   rows?: string[];
   randomise?: boolean;
+  allowOther?: boolean;
 }
 
 export function QuestionForm({
@@ -90,8 +92,14 @@ export function QuestionForm({
     setConfig((c) => ({ ...c, rows: (c.rows ?? []).map((r, idx) => (idx === i ? val : r)) }));
   }
 
+  const isChoice = type === "MULTIPLE_CHOICE" || type === "CHECKBOX";
+  const otherClash =
+    isChoice &&
+    !!config.allowOther &&
+    options.some((o) => o.trim().toLowerCase() === OTHER_OPTION.toLowerCase());
+
   async function handleSave() {
-    if (!text.trim()) return;
+    if (!text.trim() || otherClash) return;
     setLoading(true);
 
     const body: Record<string, unknown> = {
@@ -104,6 +112,9 @@ export function QuestionForm({
     if (type === "MULTIPLE_CHOICE" || type === "CHECKBOX" || type === "RANKING") {
       body.options = options.filter((o) => o.trim());
       body.config = { randomise: config.randomise ?? false };
+      if (isChoice && config.allowOther) {
+        body.config = { ...(body.config as object), allowOther: true };
+      }
     }
     if (type === "MATRIX") {
       body.options = options.filter((o) => o.trim()); // columns
@@ -227,6 +238,29 @@ export function QuestionForm({
             <Plus className="w-4 h-4" />
             {type === "RANKING" ? "Add item" : "Add option"}
           </button>
+        </div>
+      )}
+
+      {/* "Other" option — choice types only */}
+      {isChoice && (
+        <div className="flex flex-col gap-1.5">
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={config.allowOther ?? false}
+              onChange={(e) => setConfig((c) => ({ ...c, allowOther: e.target.checked }))}
+              className="w-4 h-4 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
+            />
+            <span className="text-sm text-stone-700">
+              Add an &lsquo;{OTHER_OPTION}&rsquo; option with a free-text answer (always shown last)
+            </span>
+          </label>
+          {otherClash && (
+            <p className="text-xs text-red-600">
+              Remove the &lsquo;{OTHER_OPTION}&rsquo; option from the list above — it&rsquo;s added
+              automatically when this box is ticked.
+            </p>
+          )}
         </div>
       )}
 
@@ -388,7 +422,7 @@ export function QuestionForm({
 
       {/* Actions */}
       <div className="flex gap-3 pt-1">
-        <Button onClick={handleSave} loading={loading} size="sm">
+        <Button onClick={handleSave} loading={loading} disabled={otherClash} size="sm">
           {existingQuestion ? "Save changes" : "Add question"}
         </Button>
         <Button variant="ghost" size="sm" onClick={onCancel}>

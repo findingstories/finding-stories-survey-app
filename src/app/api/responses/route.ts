@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { Resend } from "resend";
+import { dropStrayOtherText, formatAnswer } from "@/lib/answers";
 
 const answerSchema = z.object({
   questionId: z.string(),
@@ -34,13 +35,15 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Questionnaire is closed" }, { status: 403 });
   }
 
+  const answers = dropStrayOtherText(parsed.data.answers, questionnaire.questions);
+
   // Validate required questions are answered
   const requiredIds = questionnaire.questions
     .filter((q) => q.required)
     .map((q) => q.id);
 
   for (const qId of requiredIds) {
-    const answer = parsed.data.answers.find((a) => a.questionId === qId);
+    const answer = answers.find((a) => a.questionId === qId);
     if (
       !answer ||
       (answer.textValue === undefined &&
@@ -58,7 +61,7 @@ export async function POST(request: NextRequest) {
     data: {
       questionnaireId: parsed.data.questionnaireId,
       answers: {
-        create: parsed.data.answers.map((a) => ({
+        create: answers.map((a) => ({
           questionId: a.questionId,
           textValue: a.textValue,
           selectedOptions: a.selectedOptions,
@@ -82,13 +85,15 @@ export async function POST(request: NextRequest) {
       const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
       const resultsUrl = `${baseUrl}/questionnaires/${questionnaire.id}/results`;
 
-      const answerRows = parsed.data.answers.map((a) => {
+      const answerRows = answers.map((a) => {
         const question = questionnaire.questions.find((q) => q.id === a.questionId);
         const questionText = question?.text ?? a.questionId;
         const answerText =
-          a.textValue ??
-          (a.selectedOptions?.length ? a.selectedOptions.join(", ") : null) ??
-          (a.numericValue != null ? String(a.numericValue) : "—");
+          formatAnswer(question ?? { type: "" }, {
+            textValue: a.textValue ?? null,
+            selectedOptions: a.selectedOptions ?? null,
+            numericValue: a.numericValue ?? null,
+          }) ?? "—";
         return `<tr>
           <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#57534e;font-size:13px;vertical-align:top">${questionText}</td>
           <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#1c1917;font-size:13px;vertical-align:top">${answerText}</td>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { GripVertical, Edit2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
+import { allowsOther, OTHER_OPTION } from "@/lib/answers";
 
 const TYPE_LABELS: Record<string, string> = {
   SHORT_TEXT: "Short text",
@@ -47,9 +48,10 @@ export function SortableQuestion({ question, onEdit, onDelete }: Props) {
     onDelete(question.id);
   }
 
-  const options = Array.isArray(question.options)
-    ? (question.options as string[])
-    : [];
+  const options = [
+    ...(Array.isArray(question.options) ? (question.options as string[]) : []),
+    ...(allowsOther(question) ? [OTHER_OPTION] : []),
+  ];
 
   return (
     <div

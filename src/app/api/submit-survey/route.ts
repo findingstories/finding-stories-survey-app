@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { Resend } from "resend";
+import { dropStrayOtherText, formatAnswer } from "@/lib/answers";
 
 const answerSchema = z.object({
   questionId: z.string(),
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     return new Response("Invalid submission", { status: 400 });
   }
 
-  const { questionnaireId, slug, answers } = parsed.data;
+  const { questionnaireId, slug } = parsed.data;
 
   const errorUrl = (msg: string) =>
     new Response(null, {
@@ -51,6 +52,8 @@ export async function POST(request: NextRequest) {
 
   if (!questionnaire) return errorUrl("Survey not found.");
   if (!questionnaire.isOpen) return errorUrl("This survey is no longer accepting responses.");
+
+  const answers = dropStrayOtherText(parsed.data.answers, questionnaire.questions);
 
   const requiredIds = questionnaire.questions.filter((q) => q.required).map((q) => q.id);
   for (const qId of requiredIds) {
@@ -99,9 +102,11 @@ export async function POST(request: NextRequest) {
         const question = questionnaire.questions.find((q) => q.id === a.questionId);
         const questionText = question?.text ?? a.questionId;
         const answerText =
-          a.textValue ??
-          (a.selectedOptions?.length ? a.selectedOptions.join(", ") : null) ??
-          (a.numericValue != null ? String(a.numericValue) : "—");
+          formatAnswer(question ?? { type: "" }, {
+            textValue: a.textValue ?? null,
+            selectedOptions: a.selectedOptions ?? null,
+            numericValue: a.numericValue ?? null,
+          }) ?? "—";
         return `<tr>
           <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#57534e;font-size:13px;vertical-align:top">${questionText}</td>
           <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#1c1917;font-size:13px;vertical-align:top">${answerText}</td>

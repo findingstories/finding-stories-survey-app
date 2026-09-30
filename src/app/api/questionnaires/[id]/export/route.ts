@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { allowsOther, OTHER_OPTION } from "@/lib/answers";
 
 export async function GET(
   _request: NextRequest,
@@ -30,10 +31,13 @@ export async function GET(
     return Response.json({ error: "Not found" }, { status: 404 });
   }
 
+  // Questions with an "Other" option get an extra column for the typed text
   const headers = [
     "Response ID",
     "Submitted At",
-    ...questionnaire.questions.map((q) => q.text),
+    ...questionnaire.questions.flatMap((q) =>
+      allowsOther(q) ? [q.text, `${q.text} (${OTHER_OPTION} - please specify)`] : [q.text]
+    ),
   ];
 
   const rows = questionnaire.responses.map((r) => {
@@ -43,8 +47,17 @@ export async function GET(
     return [
       r.id,
       r.submittedAt.toISOString(),
-      ...questionnaire.questions.map((q) => {
+      ...questionnaire.questions.flatMap((q) => {
         const a = answerMap.get(q.id);
+        if (allowsOther(q)) {
+          const selected = Array.isArray(a?.selectedOptions)
+            ? (a.selectedOptions as string[])
+            : [];
+          return [
+            selected.join("; "),
+            selected.includes(OTHER_OPTION) ? a?.textValue ?? "" : "",
+          ];
+        }
         if (!a) return "";
         if (a.textValue != null) return a.textValue;
         if (a.numericValue != null) return String(a.numericValue);

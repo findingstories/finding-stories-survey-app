@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { ResultsCharts } from "@/components/charts/results-charts";
 import { ResponsesTable } from "@/components/admin/responses-table";
+import { allowsOther, formatAnswer } from "@/lib/answers";
 
 export default async function ResultsPage({
   params,
@@ -98,6 +99,12 @@ export default async function ResultsPage({
                 preview: (() => {
                   const first = r.answers[0];
                   if (!first) return "—";
+                  const question = questionnaire.questions.find(
+                    (q) => q.id === first.questionId
+                  );
+                  if (question && allowsOther(question)) {
+                    return formatAnswer(question, first)?.slice(0, 60) ?? "—";
+                  }
                   if (first.textValue) return first.textValue.slice(0, 60);
                   if (Array.isArray(first.selectedOptions)) {
                     return (first.selectedOptions as string[]).join(", ");

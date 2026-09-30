@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import { allowsOther, OTHER_OPTION } from "@/lib/answers";
 
 type ResponseWithAnswers = Response & { answers: Answer[] };
 
@@ -100,7 +101,21 @@ function QuestionSummary({
 // ── Choice chart ───────────────────────────────────────────────────────────
 
 function ChoiceChart({ question, answers }: { question: Question; answers: Answer[] }) {
-  const options = Array.isArray(question.options) ? (question.options as string[]) : [];
+  const hasOther = allowsOther(question);
+  const options = [
+    ...(Array.isArray(question.options) ? (question.options as string[]) : []),
+    ...(hasOther ? [OTHER_OPTION] : []),
+  ];
+  const otherTexts = hasOther
+    ? answers
+        .filter(
+          (a) =>
+            Array.isArray(a.selectedOptions) &&
+            (a.selectedOptions as string[]).includes(OTHER_OPTION) &&
+            a.textValue?.trim()
+        )
+        .map((a) => a.textValue as string)
+    : [];
   const counts = options.map((opt) => ({
     name: opt,
     count: answers.filter(
@@ -146,6 +161,18 @@ function ChoiceChart({ question, answers }: { question: Question; answers: Answe
           </tbody>
         </table>
       </div>
+      {hasOther && otherTexts.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-medium text-stone-500 uppercase tracking-wide mb-2">
+            &lsquo;{OTHER_OPTION}&rsquo; responses
+          </p>
+          <ul className="flex flex-col gap-2 max-h-64 overflow-y-auto">
+            {otherTexts.map((t, i) => (
+              <li key={i} className="text-sm text-stone-700 bg-stone-50 rounded-lg px-3 py-2">{t}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

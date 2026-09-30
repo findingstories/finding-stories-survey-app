@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef } from "react";
 import type { Question } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { allowsOther, OTHER_OPTION } from "@/lib/answers";
 import {
   DndContext,
   closestCenter,
@@ -78,7 +79,11 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, init
         ? current.filter((o) => o !== option)
         : [...current, option]
       : [option];
-    setAnswer(qId, { selectedOptions: selected });
+    // Discard any "Other" text once "Other" is no longer selected
+    setAnswer(qId, {
+      selectedOptions: selected,
+      ...(!selected.includes(OTHER_OPTION) && { textValue: undefined }),
+    });
   }
 
   function setMatrixRow(qId: string, rowIndex: number, value: string) {
@@ -90,6 +95,11 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, init
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     const newErrors: Record<string, string> = {};
     for (const q of questions) {
+      const selectedOther = answers[q.id]?.selectedOptions?.includes(OTHER_OPTION);
+      if (allowsOther(q) && selectedOther && !answers[q.id]?.textValue?.trim()) {
+        newErrors[q.id] = `Please fill in your '${OTHER_OPTION}' answer.`;
+        continue;
+      }
       if (!q.required) continue;
       const a = answers[q.id];
 
@@ -174,37 +184,55 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, init
 
             {(q.type === "MULTIPLE_CHOICE" || q.type === "CHECKBOX") && (
               <div className="flex flex-col gap-2.5">
-                {(optionOrders[q.id] ?? (Array.isArray(q.options) ? (q.options as string[]) : [])).map((opt) => {
+                {[
+                  ...(optionOrders[q.id] ?? (Array.isArray(q.options) ? (q.options as string[]) : [])),
+                  // "Other" is always last, even when options are randomised
+                  ...(allowsOther(q) ? [OTHER_OPTION] : []),
+                ].map((opt) => {
                   const isCheckbox = q.type === "CHECKBOX";
                   const selected = answers[q.id]?.selectedOptions?.includes(opt) ?? false;
+                  const isOther = opt === OTHER_OPTION && allowsOther(q);
                   return (
-                    <label key={opt} className="flex items-center gap-3 cursor-pointer group">
-                      <input
-                        type={isCheckbox ? "checkbox" : "radio"}
-                        name={`q-${q.id}`}
-                        value={opt}
-                        checked={selected}
-                        onChange={() => toggleOption(q.id, opt, isCheckbox)}
-                        className="sr-only"
-                      />
-                      <span
-                        aria-hidden="true"
-                        className={`flex-shrink-0 w-5 h-5 rounded-${isCheckbox ? "md" : "full"} border-2 flex items-center justify-center transition-colors ${
-                          selected ? "border-brand-600 bg-brand-600" : "border-stone-300 group-hover:border-brand-400"
-                        }`}
-                      >
-                        {selected && (
-                          <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
-                            {isCheckbox ? (
-                              <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            ) : (
-                              <circle cx="6" cy="6" r="3" fill="white" />
-                            )}
-                          </svg>
-                        )}
-                      </span>
-                      <span className="text-sm text-stone-700">{opt}</span>
-                    </label>
+                    <div key={opt} className="flex flex-col gap-2">
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <input
+                          type={isCheckbox ? "checkbox" : "radio"}
+                          name={`q-${q.id}`}
+                          value={opt}
+                          checked={selected}
+                          onChange={() => toggleOption(q.id, opt, isCheckbox)}
+                          className="sr-only"
+                        />
+                        <span
+                          aria-hidden="true"
+                          className={`flex-shrink-0 w-5 h-5 rounded-${isCheckbox ? "md" : "full"} border-2 flex items-center justify-center transition-colors ${
+                            selected ? "border-brand-600 bg-brand-600" : "border-stone-300 group-hover:border-brand-400"
+                          }`}
+                        >
+                          {selected && (
+                            <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+                              {isCheckbox ? (
+                                <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                              ) : (
+                                <circle cx="6" cy="6" r="3" fill="white" />
+                              )}
+                            </svg>
+                          )}
+                        </span>
+                        <span className="text-sm text-stone-700">{opt}</span>
+                      </label>
+                      {isOther && selected && (
+                        <input
+                          className="ml-8 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                          placeholder="Please specify"
+                          aria-label={`${OTHER_OPTION} — please specify`}
+                          autoFocus
+                          maxLength={1000}
+                          value={answers[q.id]?.textValue ?? ""}
+                          onChange={(e) => setAnswer(q.id, { textValue: e.target.value })}
+                        />
+                      )}
+                    </div>
                   );
                 })}
               </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DeleteResponseButton } from "@/components/admin/delete-response-button";
+import { formatAnswer } from "@/lib/answers";
 
 const TYPE_LABELS: Record<string, string> = {
   SHORT_TEXT: "Short text",
@@ -60,17 +61,7 @@ export default async function ResponseDetailPage({
 
       <div className="flex flex-col gap-4">
         {response.answers.map((answer) => {
-          let displayValue: string = "—";
-          if (answer.textValue) {
-            displayValue = answer.textValue;
-          } else if (
-            Array.isArray(answer.selectedOptions) &&
-            answer.selectedOptions.length > 0
-          ) {
-            displayValue = (answer.selectedOptions as string[]).join(", ");
-          } else if (answer.numericValue != null) {
-            displayValue = String(answer.numericValue);
-          }
+          const displayValue = formatAnswer(answer.question, answer) ?? "—";
 
           return (
             <div
