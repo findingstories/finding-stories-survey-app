@@ -4,7 +4,8 @@ import { useState, useMemo, useRef } from "react";
 import type { Question } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { allowsOther, maxSelections, OTHER_OPTION } from "@/lib/answers";
-import { isSection, splitIntoPages } from "@/lib/sections";
+import { isSection, splitIntoPages, type Page } from "@/lib/sections";
+import { hiddenItemIds } from "@/lib/skip-logic";
 import {
   DndContext,
   closestCenter,
@@ -49,8 +50,23 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
   const [pageIndex, setPageIndex] = useState(0);
   const [pageWarning, setPageWarning] = useState("");
   const page = pages[pageIndex];
-  const isLastPage = pageIndex === pages.length - 1;
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Skip logic hides questions (and whole pages) based on the answers so far;
+  // changing an answer back makes them reappear
+  const hidden = useMemo(() => hiddenItemIds(questions, answers), [questions, answers]);
+  const visibleQuestions = (p: Page<Question>) => p.questions.filter((q) => !hidden.has(q.id));
+  const isPageVisible = (p: Page<Question>) =>
+    p.questions.length > 0
+      ? visibleQuestions(p).length > 0
+      : !!p.section && !hidden.has(p.section.id);
+  const visiblePageIndexes = pages
+    .map((_, i) => i)
+    .filter((i) => i === pageIndex || isPageVisible(pages[i]));
+  const position = visiblePageIndexes.indexOf(pageIndex);
+  const nextPageIndex = visiblePageIndexes[position + 1];
+  const prevPageIndex = visiblePageIndexes[position - 1];
+  const isLastPage = nextPageIndex === undefined;
 
   // Question numbers run across the whole survey, skipping section breaks
   const questionNumbers = useMemo(() => {
@@ -88,7 +104,7 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
   function validate(qs: Question[]): Record<string, string> {
     const newErrors: Record<string, string> = {};
     for (const q of qs) {
-      if (isSection(q)) continue;
+      if (isSection(q) || hidden.has(q.id)) continue;
       const selectedOther = answers[q.id]?.selectedOptions?.includes(OTHER_OPTION);
       if (allowsOther(q) && selectedOther && !answers[q.id]?.textValue?.trim()) {
         newErrors[q.id] = `Please fill in your '${OTHER_OPTION}' answer.`;
@@ -133,7 +149,7 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
   }
 
   function handleNext() {
-    const newErrors = validate(page.questions);
+    const newErrors = validate(visibleQuestions(page));
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       setPageWarning("Please answer the required questions on this page before continuing.");
@@ -141,13 +157,13 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
       return;
     }
     setPageWarning("");
-    setPageIndex((i) => i + 1);
+    setPageIndex(nextPageIndex);
     scrollToTop();
   }
 
   function handleBack() {
     setPageWarning("");
-    setPageIndex((i) => i - 1);
+    setPageIndex(prevPageIndex);
     scrollToTop();
   }
 
@@ -182,8 +198,9 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
       payloadRef.current.value = JSON.stringify({
         questionnaireId,
         slug,
+        // Answers to questions hidden by skip logic are discarded
         answers: questions
-          .filter((q) => answers[q.id])
+          .filter((q) => answers[q.id] && !hidden.has(q.id))
           .map((q) => ({ questionId: q.id, ...answers[q.id] })),
       });
     }
@@ -203,18 +220,18 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
       {pages.length > 1 && (
         <div className="flex flex-col gap-2">
           <p className="text-xs font-medium text-stone-500">
-            Section {pageIndex + 1} of {pages.length}
+            Section {position + 1} of {visiblePageIndexes.length}
           </p>
           <div
             className="h-1.5 rounded-full bg-stone-200 overflow-hidden"
             role="progressbar"
             aria-valuemin={1}
-            aria-valuemax={pages.length}
-            aria-valuenow={pageIndex + 1}
+            aria-valuemax={visiblePageIndexes.length}
+            aria-valuenow={position + 1}
           >
             <div
               className="h-full bg-brand-500 transition-all"
-              style={{ width: `${((pageIndex + 1) / pages.length) * 100}%` }}
+              style={{ width: `${((position + 1) / visiblePageIndexes.length) * 100}%` }}
             />
           </div>
         </div>
@@ -231,7 +248,7 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
         </div>
       )}
 
-      {page.questions.map((q) => (
+      {visibleQuestions(page).map((q) => (
         <div key={q.id} id={`question-${q.id}`} className="bg-white rounded-xl border border-stone-200 p-6">
           <p className="text-base font-medium text-stone-900 mb-1">
             <span className="text-stone-400 font-normal text-sm mr-2">{questionNumbers[q.id]}.</span>
@@ -401,7 +418,7 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
           </p>
         )}
         <div className="flex w-full items-center justify-end gap-3">
-          {pageIndex > 0 && (
+          {prevPageIndex !== undefined && (
             <Button type="button" variant="secondary" size="lg" onClick={handleBack} className="mr-auto">
               Back
             </Button>

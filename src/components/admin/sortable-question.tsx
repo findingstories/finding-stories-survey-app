@@ -8,6 +8,7 @@ import { GripVertical, Edit2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { allowsOther, maxSelections, OTHER_OPTION } from "@/lib/answers";
+import { isValidSkipTarget, skipRules } from "@/lib/skip-logic";
 
 const TYPE_LABELS: Record<string, string> = {
   SHORT_TEXT: "Short text",
@@ -25,11 +26,12 @@ const TYPE_LABELS: Record<string, string> = {
 
 interface Props {
   question: Question;
+  allItems: Question[];
   onEdit: () => void;
   onDelete: (id: string) => void;
 }
 
-export function SortableQuestion({ question, onEdit, onDelete }: Props) {
+export function SortableQuestion({ question, allItems, onEdit, onDelete }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: question.id });
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -50,6 +52,9 @@ export function SortableQuestion({ question, onEdit, onDelete }: Props) {
   }
 
   const section = question.type === "SECTION";
+  const rules = Object.values(skipRules(question));
+  // Reordering or deleting questions can leave a rule pointing backwards or nowhere
+  const brokenSkip = rules.some((t) => !isValidSkipTarget(allItems, question.id, t));
   const options = [
     ...(Array.isArray(question.options) ? (question.options as string[]) : []),
     ...(allowsOther(question) ? [OTHER_OPTION] : []),
@@ -86,6 +91,11 @@ export function SortableQuestion({ question, onEdit, onDelete }: Props) {
           )}
           {question.required && (
             <span className="text-xs text-stone-400">Required</span>
+          )}
+          {rules.length > 0 && (
+            <span className={`text-xs ${brokenSkip ? "text-amber-600" : "text-stone-400"}`}>
+              {brokenSkip ? "Skip logic needs checking" : "Skip logic"}
+            </span>
           )}
         </div>
         {section ? (

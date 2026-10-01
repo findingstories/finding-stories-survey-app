@@ -306,6 +306,7 @@ export function QuestionnaireEditor({ questionnaire, shareUrl, coverImageVersion
                 <QuestionForm
                   key={q.id}
                   questionnaireId={questionnaire.id}
+                  allItems={questions}
                   existingQuestion={q}
                   onSaved={handleQuestionUpdated}
                   onCancel={() => setEditingId(null)}
@@ -314,6 +315,7 @@ export function QuestionnaireEditor({ questionnaire, shareUrl, coverImageVersion
                 <SortableQuestion
                   key={q.id}
                   question={q}
+                  allItems={questions}
                   onEdit={() => setEditingId(q.id)}
                   onDelete={handleQuestionDeleted}
                 />
@@ -325,6 +327,7 @@ export function QuestionnaireEditor({ questionnaire, shareUrl, coverImageVersion
         {adding === "question" ? (
           <QuestionForm
             questionnaireId={questionnaire.id}
+            allItems={questions}
             onSaved={handleQuestionAdded}
             onCancel={() => setAdding(null)}
           />

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { OTHER_OPTION } from "@/lib/answers";
+import { END_SURVEY } from "@/lib/skip-logic";
 import { Plus, X } from "lucide-react";
 
 const QUESTION_TYPES = [
@@ -27,6 +28,8 @@ type QuestionTypeName = (typeof QUESTION_TYPES)[number]["value"] | "CHECKBOX";
 interface Props {
   questionnaireId: string;
   existingQuestion?: Question;
+  // All questions and sections in the survey, in order (for skip logic targets)
+  allItems: Question[];
   onSaved: (q: Question) => void;
   onCancel: () => void;
 }
@@ -42,11 +45,13 @@ interface QuestionConfig {
   randomise?: boolean;
   allowOther?: boolean;
   maxSelections?: number;
+  skipLogic?: Record<string, string>;
 }
 
 export function QuestionForm({
   questionnaireId,
   existingQuestion,
+  allItems,
   onSaved,
   onCancel,
 }: Props) {
@@ -78,11 +83,43 @@ export function QuestionForm({
     setOptions((prev) => [...prev, `Option ${prev.length + 1}`]);
   }
   function removeOption(i: number) {
+    setSkipRule(options[i], "");
     setOptions((prev) => prev.filter((_, idx) => idx !== i));
   }
   function updateOption(i: number, val: string) {
+    // Skip rules are keyed by option text, so carry the rule over to the new text
+    const rule = config.skipLogic?.[options[i]];
+    if (rule) {
+      setConfig((c) => {
+        const next = { ...c.skipLogic };
+        delete next[options[i]];
+        return { ...c, skipLogic: { ...next, [val]: rule } };
+      });
+    }
     setOptions((prev) => prev.map((o, idx) => (idx === i ? val : o)));
   }
+
+  function setSkipRule(option: string, target: string) {
+    setConfig((c) => {
+      const next = { ...c.skipLogic };
+      if (target) next[option] = target;
+      else delete next[option];
+      return { ...c, skipLogic: next };
+    });
+  }
+
+  // Skip targets: anything after this question (a new question goes at the end)
+  const ownIndex = existingQuestion ? allItems.findIndex((q) => q.id === existingQuestion.id) : -1;
+  const laterItems = existingQuestion ? allItems.slice(ownIndex + 1) : [];
+  const questionNumbers = new Map(
+    allItems.filter((q) => q.type !== "SECTION").map((q, i) => [q.id, i + 1])
+  );
+  const targetLabel = (q: Question) =>
+    q.type === "SECTION"
+      ? `Section: ${q.text}`
+      : `Question ${questionNumbers.get(q.id)}: ${q.text.length > 60 ? `${q.text.slice(0, 60)}…` : q.text}`;
+  const isValidTarget = (target: string) =>
+    target === END_SURVEY || laterItems.some((q) => q.id === target);
 
   function addRow() {
     setConfig((c) => ({ ...c, rows: [...(c.rows ?? []), `Row ${(c.rows ?? []).length + 1}`] }));
@@ -130,6 +167,21 @@ export function QuestionForm({
       }
       if (type === "CHECKBOX" && config.maxSelections !== undefined) {
         body.config = { ...(body.config as object), maxSelections: config.maxSelections };
+      }
+      if (type === "MULTIPLE_CHOICE") {
+        // Keep rules only for options that still exist and targets still ahead
+        const optionSet = new Set([
+          ...(body.options as string[]),
+          ...(config.allowOther ? [OTHER_OPTION] : []),
+        ]);
+        const skipLogic = Object.fromEntries(
+          Object.entries(config.skipLogic ?? {}).filter(
+            ([option, target]) => optionSet.has(option) && isValidTarget(target)
+          )
+        );
+        if (Object.keys(skipLogic).length > 0) {
+          body.config = { ...(body.config as object), skipLogic };
+        }
       }
     }
     if (type === "MATRIX") {
@@ -325,6 +377,56 @@ export function QuestionForm({
                 {config.allowOther && ` '${OTHER_OPTION}' counts towards the limit.`}
               </p>
             )
+          )}
+        </div>
+      )}
+
+      {/* Skip logic — single-answer multiple choice only */}
+      {type === "MULTIPLE_CHOICE" && (
+        <div className="flex flex-col gap-2">
+          <div>
+            <p className="text-sm font-medium text-stone-700">Skip logic (optional)</p>
+            <p className="text-xs text-stone-400">
+              Choose where each answer leads. Questions in between are hidden from the respondent.
+            </p>
+          </div>
+          {[
+            ...options.filter((o) => o.trim()),
+            ...(config.allowOther ? [OTHER_OPTION] : []),
+          ].map((opt, i) => {
+            const rule = config.skipLogic?.[opt] ?? "";
+            const broken = rule !== "" && !isValidTarget(rule);
+            return (
+              <div key={`${opt}-${i}`} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                <span className="text-sm text-stone-700 sm:w-1/3 truncate">{opt}</span>
+                <select
+                  value={broken ? "" : rule}
+                  onChange={(e) => setSkipRule(opt, e.target.value)}
+                  aria-label={`If "${opt}" is chosen`}
+                  className="flex-1 min-w-0 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                >
+                  <option value="">Go to the next question</option>
+                  {laterItems.length > 0 && (
+                    <optgroup label="Skip to">
+                      {laterItems.map((q) => (
+                        <option key={q.id} value={q.id}>{targetLabel(q)}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <option value={END_SURVEY}>End the survey</option>
+                </select>
+                {broken && (
+                  <span className="text-xs text-amber-600">
+                    Its previous target is no longer after this question
+                  </span>
+                )}
+              </div>
+            );
+          })}
+          {!existingQuestion && (
+            <p className="text-xs text-stone-400">
+              To skip to a later question, add that question first, then come back and edit this one.
+            </p>
           )}
         </div>
       )}

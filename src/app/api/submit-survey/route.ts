@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { Resend } from "resend";
 import { dropStrayOtherText, exceedsSelectionLimit, formatAnswer } from "@/lib/answers";
+import { hiddenItemIds } from "@/lib/skip-logic";
 
 const answerSchema = z.object({
   questionId: z.string(),
@@ -53,12 +54,18 @@ export async function POST(request: NextRequest) {
   if (!questionnaire) return errorUrl("Survey not found.");
   if (!questionnaire.isOpen) return errorUrl("This survey is no longer accepting responses.");
 
-  const answers = dropStrayOtherText(parsed.data.answers, questionnaire.questions);
+  // Questions hidden by skip logic are neither required nor saved
+  const submitted = dropStrayOtherText(parsed.data.answers, questionnaire.questions);
+  const hidden = hiddenItemIds(
+    questionnaire.questions,
+    Object.fromEntries(submitted.map((a) => [a.questionId, a]))
+  );
+  const answers = submitted.filter((a) => !hidden.has(a.questionId));
   if (exceedsSelectionLimit(answers, questionnaire.questions)) {
     return errorUrl("Please check how many options you've selected.");
   }
 
-  const requiredIds = questionnaire.questions.filter((q) => q.required).map((q) => q.id);
+  const requiredIds = questionnaire.questions.filter((q) => q.required && !hidden.has(q.id)).map((q) => q.id);
   for (const qId of requiredIds) {
     const answer = answers.find((a) => a.questionId === qId);
     if (
