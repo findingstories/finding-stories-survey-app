@@ -32,6 +32,8 @@ export function QuestionnaireDashboardActions({
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const deleteConfirmed = confirmText.trim().toLowerCase() === "delete";
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
@@ -63,11 +65,17 @@ export function QuestionnaireDashboardActions({
     }
   }
 
+  function closeDeleteDialog() {
+    setConfirmDelete(false);
+    setConfirmText("");
+  }
+
   async function handleDelete() {
+    if (!deleteConfirmed) return;
     setDeleting(true);
     await fetch(`/api/questionnaires/${id}`, { method: "DELETE" });
     setDeleting(false);
-    setConfirmDelete(false);
+    closeDeleteDialog();
     router.refresh();
   }
 
@@ -135,21 +143,42 @@ export function QuestionnaireDashboardActions({
 
       <Dialog
         open={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
+        onClose={closeDeleteDialog}
         title="Delete questionnaire?"
       >
-        <p className="text-sm text-stone-600 mb-6">
+        <p className="text-sm text-stone-600 mb-4">
           This will permanently delete the questionnaire and all its responses.
           This action cannot be undone.
         </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleDelete();
+          }}
+          className="flex flex-col gap-1.5 mb-6"
+        >
+          <label htmlFor={`confirm-delete-${id}`} className="text-sm text-stone-700">
+            Type <span className="font-semibold">Delete</span> to confirm
+          </label>
+          <input
+            id={`confirm-delete-${id}`}
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            autoComplete="off"
+            autoFocus
+            className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+          />
+        </form>
         <div className="flex gap-3 justify-end">
-          <Button
-            variant="secondary"
-            onClick={() => setConfirmDelete(false)}
-          >
+          <Button variant="secondary" onClick={closeDeleteDialog}>
             Cancel
           </Button>
-          <Button variant="danger" loading={deleting} onClick={handleDelete}>
+          <Button
+            variant="danger"
+            loading={deleting}
+            disabled={!deleteConfirmed}
+            onClick={handleDelete}
+          >
             Delete
           </Button>
         </div>
