@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button";
 import { GripVertical, Edit2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
-import { allowsOther, OTHER_OPTION } from "@/lib/answers";
+import { allowsOther, maxSelections, OTHER_OPTION } from "@/lib/answers";
 
 const TYPE_LABELS: Record<string, string> = {
   SHORT_TEXT: "Short text",
   LONG_TEXT: "Long text",
   MULTIPLE_CHOICE: "Multiple choice",
-  CHECKBOX: "Checkboxes",
+  CHECKBOX: "Multiple choice",
   RATING: "Rating",
   LIKERT: "Likert",
   NPS: "NPS",
@@ -72,6 +72,12 @@ export function SortableQuestion({ question, onEdit, onDelete }: Props) {
           <span className="text-xs font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full">
             {TYPE_LABELS[question.type]}
           </span>
+          {question.type === "CHECKBOX" && (
+            <span className="text-xs text-stone-400">
+              Multiple answers
+              {maxSelections(question) !== undefined && ` · up to ${maxSelections(question)}`}
+            </span>
+          )}
           {question.required && (
             <span className="text-xs text-stone-400">Required</span>
           )}

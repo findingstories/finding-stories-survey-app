@@ -20,6 +20,26 @@ export function allowsOther(question: QuestionLike) {
   );
 }
 
+// Selection limit for multiple-answer questions; undefined means no limit.
+export function maxSelections(question: QuestionLike): number | undefined {
+  if (question.type !== "CHECKBOX") return undefined;
+  const max = (question.config as { maxSelections?: unknown } | null)?.maxSelections;
+  return typeof max === "number" && Number.isInteger(max) && max > 0 ? max : undefined;
+}
+
+// True if any answer selects more options than its question allows.
+export function exceedsSelectionLimit(
+  answers: { questionId: string; selectedOptions?: string[] }[],
+  questions: (QuestionLike & { id: string })[]
+): boolean {
+  const byId = new Map(questions.map((q) => [q.id, q]));
+  return answers.some((a) => {
+    const q = byId.get(a.questionId);
+    const max = q && maxSelections(q);
+    return max !== undefined && (a.selectedOptions?.length ?? 0) > max;
+  });
+}
+
 // Human-readable answer. For choice questions an "Other" selection is shown
 // as "Other: <text>"; every other case matches the original display logic.
 export function formatAnswer(

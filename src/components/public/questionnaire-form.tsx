@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef } from "react";
 import type { Question } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { allowsOther, OTHER_OPTION } from "@/lib/answers";
+import { allowsOther, maxSelections, OTHER_OPTION } from "@/lib/answers";
 import {
   DndContext,
   closestCenter,
@@ -72,8 +72,9 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, init
     setErrors((prev) => ({ ...prev, [qId]: "" }));
   }
 
-  function toggleOption(qId: string, option: string, multi: boolean) {
+  function toggleOption(qId: string, option: string, multi: boolean, max?: number) {
     const current = answers[qId]?.selectedOptions ?? [];
+    if (multi && max !== undefined && !current.includes(option) && current.length >= max) return;
     const selected = multi
       ? current.includes(option)
         ? current.filter((o) => o !== option)
@@ -98,6 +99,11 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, init
       const selectedOther = answers[q.id]?.selectedOptions?.includes(OTHER_OPTION);
       if (allowsOther(q) && selectedOther && !answers[q.id]?.textValue?.trim()) {
         newErrors[q.id] = `Please fill in your '${OTHER_OPTION}' answer.`;
+        continue;
+      }
+      const max = maxSelections(q);
+      if (max !== undefined && (answers[q.id]?.selectedOptions?.length ?? 0) > max) {
+        newErrors[q.id] = `Please select no more than ${max}.`;
         continue;
       }
       if (!q.required) continue;
@@ -184,6 +190,14 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, init
 
             {(q.type === "MULTIPLE_CHOICE" || q.type === "CHECKBOX") && (
               <div className="flex flex-col gap-2.5">
+                {maxSelections(q) !== undefined && (
+                  <p className="text-sm text-stone-500 -mt-1">
+                    Select up to {maxSelections(q)}
+                    <span className="text-stone-400">
+                      {" "}({answers[q.id]?.selectedOptions?.length ?? 0} of {maxSelections(q)} selected)
+                    </span>
+                  </p>
+                )}
                 {[
                   ...(optionOrders[q.id] ?? (Array.isArray(q.options) ? (q.options as string[]) : [])),
                   // "Other" is always last, even when options are randomised
@@ -192,21 +206,31 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, init
                   const isCheckbox = q.type === "CHECKBOX";
                   const selected = answers[q.id]?.selectedOptions?.includes(opt) ?? false;
                   const isOther = opt === OTHER_OPTION && allowsOther(q);
+                  const max = maxSelections(q);
+                  // Once the limit is reached, unselected options can't be picked
+                  const atLimit =
+                    isCheckbox && max !== undefined && !selected &&
+                    (answers[q.id]?.selectedOptions?.length ?? 0) >= max;
                   return (
                     <div key={opt} className="flex flex-col gap-2">
-                      <label className="flex items-center gap-3 cursor-pointer group">
+                      <label className={`flex items-center gap-3 group ${atLimit ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}>
                         <input
                           type={isCheckbox ? "checkbox" : "radio"}
                           name={`q-${q.id}`}
                           value={opt}
                           checked={selected}
-                          onChange={() => toggleOption(q.id, opt, isCheckbox)}
+                          disabled={atLimit}
+                          onChange={() => toggleOption(q.id, opt, isCheckbox, max)}
                           className="sr-only"
                         />
                         <span
                           aria-hidden="true"
                           className={`flex-shrink-0 w-5 h-5 rounded-${isCheckbox ? "md" : "full"} border-2 flex items-center justify-center transition-colors ${
-                            selected ? "border-brand-600 bg-brand-600" : "border-stone-300 group-hover:border-brand-400"
+                            selected
+                              ? "border-brand-600 bg-brand-600"
+                              : atLimit
+                                ? "border-stone-300"
+                                : "border-stone-300 group-hover:border-brand-400"
                           }`}
                         >
                           {selected && (

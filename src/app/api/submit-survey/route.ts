@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { Resend } from "resend";
-import { dropStrayOtherText, formatAnswer } from "@/lib/answers";
+import { dropStrayOtherText, exceedsSelectionLimit, formatAnswer } from "@/lib/answers";
 
 const answerSchema = z.object({
   questionId: z.string(),
@@ -54,6 +54,9 @@ export async function POST(request: NextRequest) {
   if (!questionnaire.isOpen) return errorUrl("This survey is no longer accepting responses.");
 
   const answers = dropStrayOtherText(parsed.data.answers, questionnaire.questions);
+  if (exceedsSelectionLimit(answers, questionnaire.questions)) {
+    return errorUrl("Please check how many options you've selected.");
+  }
 
   const requiredIds = questionnaire.questions.filter((q) => q.required).map((q) => q.id);
   for (const qId of requiredIds) {

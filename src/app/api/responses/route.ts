@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { Resend } from "resend";
-import { dropStrayOtherText, formatAnswer } from "@/lib/answers";
+import { dropStrayOtherText, exceedsSelectionLimit, formatAnswer } from "@/lib/answers";
 
 const answerSchema = z.object({
   questionId: z.string(),
@@ -36,6 +36,9 @@ export async function POST(request: NextRequest) {
   }
 
   const answers = dropStrayOtherText(parsed.data.answers, questionnaire.questions);
+  if (exceedsSelectionLimit(answers, questionnaire.questions)) {
+    return Response.json({ error: "Too many options selected" }, { status: 400 });
+  }
 
   // Validate required questions are answered
   const requiredIds = questionnaire.questions

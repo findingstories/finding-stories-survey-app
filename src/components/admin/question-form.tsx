@@ -12,7 +12,6 @@ const QUESTION_TYPES = [
   { value: "SHORT_TEXT", label: "Short text" },
   { value: "LONG_TEXT", label: "Long text" },
   { value: "MULTIPLE_CHOICE", label: "Multiple choice" },
-  { value: "CHECKBOX", label: "Checkboxes" },
   { value: "RATING", label: "Rating scale" },
   { value: "LIKERT", label: "Likert scale" },
   { value: "NPS", label: "NPS" },
@@ -21,7 +20,9 @@ const QUESTION_TYPES = [
   { value: "DATE", label: "Date" },
 ] as const;
 
-type QuestionTypeName = (typeof QUESTION_TYPES)[number]["value"];
+// "Multiple choice" covers both stored types: MULTIPLE_CHOICE (single answer)
+// and CHECKBOX (multiple answers)
+type QuestionTypeName = (typeof QUESTION_TYPES)[number]["value"] | "CHECKBOX";
 
 interface Props {
   questionnaireId: string;
@@ -40,6 +41,7 @@ interface QuestionConfig {
   rows?: string[];
   randomise?: boolean;
   allowOther?: boolean;
+  maxSelections?: number;
 }
 
 export function QuestionForm({
@@ -98,8 +100,19 @@ export function QuestionForm({
     !!config.allowOther &&
     options.some((o) => o.trim().toLowerCase() === OTHER_OPTION.toLowerCase());
 
+  const choiceCount =
+    options.filter((o) => o.trim()).length + (isChoice && config.allowOther ? 1 : 0);
+  const limitError =
+    type === "CHECKBOX" && config.maxSelections !== undefined
+      ? !Number.isInteger(config.maxSelections) || config.maxSelections < 1
+        ? "Enter a whole number of 1 or more."
+        : config.maxSelections > choiceCount
+          ? `The limit can't be more than the number of options (${choiceCount}).`
+          : ""
+      : "";
+
   async function handleSave() {
-    if (!text.trim() || otherClash) return;
+    if (!text.trim() || otherClash || limitError) return;
     setLoading(true);
 
     const body: Record<string, unknown> = {
@@ -114,6 +127,9 @@ export function QuestionForm({
       body.config = { randomise: config.randomise ?? false };
       if (isChoice && config.allowOther) {
         body.config = { ...(body.config as object), allowOther: true };
+      }
+      if (type === "CHECKBOX" && config.maxSelections !== undefined) {
+        body.config = { ...(body.config as object), maxSelections: config.maxSelections };
       }
     }
     if (type === "MATRIX") {
@@ -168,7 +184,7 @@ export function QuestionForm({
               onClick={() => setType(value)}
               className={cn(
                 "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-                type === value
+                type === value || (value === "MULTIPLE_CHOICE" && type === "CHECKBOX")
                   ? "bg-brand-600 text-white"
                   : "bg-stone-100 text-stone-600 hover:bg-stone-200"
               )}
@@ -212,6 +228,33 @@ export function QuestionForm({
         </p>
       )}
 
+      {/* Single or multiple answers — choice types only */}
+      {isChoice && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-stone-700">Answers allowed</label>
+          <div className="flex flex-wrap gap-2">
+            {([
+              ["MULTIPLE_CHOICE", "Single answer (radio buttons)"],
+              ["CHECKBOX", "Multiple answers (checkboxes)"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setType(value)}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-xs font-medium transition-colors border",
+                  type === value
+                    ? "bg-brand-600 text-white border-brand-600"
+                    : "bg-white text-stone-600 border-stone-200 hover:bg-stone-50"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Options for choice / ranking questions */}
       {needsOptions && (
         <div className="flex flex-col gap-2">
@@ -238,6 +281,51 @@ export function QuestionForm({
             <Plus className="w-4 h-4" />
             {type === "RANKING" ? "Add item" : "Add option"}
           </button>
+        </div>
+      )}
+
+      {/* Selection limit — multiple answers only */}
+      {type === "CHECKBOX" && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={config.maxSelections !== undefined}
+                onChange={(e) =>
+                  setConfig((c) => ({
+                    ...c,
+                    maxSelections: e.target.checked ? Math.min(2, Math.max(choiceCount, 1)) : undefined,
+                  }))
+                }
+                className="w-4 h-4 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
+              />
+              <span className="text-sm text-stone-700">Limit how many can be selected</span>
+            </label>
+            {config.maxSelections !== undefined && (
+              <span className="flex items-center gap-2 text-sm text-stone-700">
+                up to
+                <input
+                  type="number"
+                  min={1}
+                  max={choiceCount}
+                  value={Number.isNaN(config.maxSelections) ? "" : config.maxSelections}
+                  onChange={(e) => setConfig((c) => ({ ...c, maxSelections: e.target.valueAsNumber }))}
+                  className="w-16 rounded-lg border border-stone-200 bg-white px-2 py-1 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                />
+              </span>
+            )}
+          </div>
+          {limitError ? (
+            <p className="text-xs text-red-600">{limitError}</p>
+          ) : (
+            config.maxSelections !== undefined && (
+              <p className="text-xs text-stone-400">
+                Respondents will see &ldquo;Select up to {config.maxSelections}&rdquo;.
+                {config.allowOther && ` '${OTHER_OPTION}' counts towards the limit.`}
+              </p>
+            )
+          )}
         </div>
       )}
 
@@ -422,7 +510,7 @@ export function QuestionForm({
 
       {/* Actions */}
       <div className="flex gap-3 pt-1">
-        <Button onClick={handleSave} loading={loading} disabled={otherClash} size="sm">
+        <Button onClick={handleSave} loading={loading} disabled={otherClash || !!limitError} size="sm">
           {existingQuestion ? "Save changes" : "Add question"}
         </Button>
         <Button variant="ghost" size="sm" onClick={onCancel}>

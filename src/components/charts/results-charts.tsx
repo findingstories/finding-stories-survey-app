@@ -25,7 +25,7 @@ const TYPE_LABELS: Record<string, string> = {
   SHORT_TEXT: "Short text",
   LONG_TEXT: "Long text",
   MULTIPLE_CHOICE: "Multiple choice",
-  CHECKBOX: "Checkboxes",
+  CHECKBOX: "Multiple choice",
   RATING: "Rating",
   LIKERT: "Likert",
   NPS: "NPS",
