@@ -17,7 +17,8 @@ export async function GET(
   const questionnaire = await prisma.questionnaire.findUnique({
     where: { id },
     include: {
-      questions: { orderBy: { order: "asc" } },
+      // Section breaks are headings, not questions
+      questions: { where: { type: { not: "SECTION" } }, orderBy: { order: "asc" } },
       responses: {
         orderBy: { submittedAt: "asc" },
         include: {

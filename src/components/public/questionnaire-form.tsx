@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from "react";
 import type { Question } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { allowsOther, maxSelections, OTHER_OPTION } from "@/lib/answers";
+import { isSection, splitIntoPages } from "@/lib/sections";
 import {
   DndContext,
   closestCenter,
@@ -26,6 +27,8 @@ interface Props {
   questionnaireId: string;
   slug: string;
   questions: Question[];
+  // Shuffled option orders for randomised questions (from randomisedOptionOrders)
+  optionOrders: Record<string, string[]>;
   initialError?: string;
 }
 
@@ -35,37 +38,26 @@ interface AnswerState {
   numericValue?: number;
 }
 
-function shuffled<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-export function PublicQuestionnaireForm({ questionnaireId, slug, questions, initialError }: Props) {
+export function PublicQuestionnaireForm({ questionnaireId, slug, questions, optionOrders, initialError }: Props) {
   const payloadRef = useRef<HTMLInputElement>(null);
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
 
-  // Compute shuffled option orders once on mount — never changes after that
-  const optionOrders = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    for (const q of questions) {
-      const opts = Array.isArray(q.options) ? (q.options as string[]) : [];
-      const cfg = (q.config ?? {}) as { randomise?: boolean };
-      if (
-        (q.type === "MULTIPLE_CHOICE" || q.type === "CHECKBOX" || q.type === "RANKING") &&
-        cfg.randomise &&
-        opts.length > 0
-      ) {
-        map[q.id] = shuffled(opts);
-      }
-    }
-    return map;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // empty deps: only run once on mount
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Section breaks split the survey into pages; with none it's a single page
+  const pages = useMemo(() => splitIntoPages(questions), [questions]);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageWarning, setPageWarning] = useState("");
+  const page = pages[pageIndex];
+  const isLastPage = pageIndex === pages.length - 1;
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Question numbers run across the whole survey, skipping section breaks
+  const questionNumbers = useMemo(() => {
+    const map: Record<string, number> = {};
+    questions.filter((q) => !isSection(q)).forEach((q, i) => (map[q.id] = i + 1));
+    return map;
+  }, [questions]);
 
   function setAnswer(qId: string, update: AnswerState) {
     setAnswers((prev) => ({ ...prev, [qId]: { ...prev[qId], ...update } }));
@@ -93,9 +85,10 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, init
     setAnswer(qId, { selectedOptions: current });
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function validate(qs: Question[]): Record<string, string> {
     const newErrors: Record<string, string> = {};
-    for (const q of questions) {
+    for (const q of qs) {
+      if (isSection(q)) continue;
       const selectedOther = answers[q.id]?.selectedOptions?.includes(OTHER_OPTION);
       if (allowsOther(q) && selectedOther && !answers[q.id]?.textValue?.trim()) {
         newErrors[q.id] = `Please fill in your '${OTHER_OPTION}' answer.`;
@@ -127,9 +120,60 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, init
       }
     }
 
+    return newErrors;
+  }
+
+  function scrollToTop() {
+    formRef.current?.parentElement?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function scrollToFirstError(newErrors: Record<string, string>) {
+    const firstId = questions.find((q) => newErrors[q.id])?.id;
+    if (firstId) document.getElementById(`question-${firstId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function handleNext() {
+    const newErrors = validate(page.questions);
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setPageWarning("Please answer the required questions on this page before continuing.");
+      scrollToFirstError(newErrors);
+      return;
+    }
+    setPageWarning("");
+    setPageIndex((i) => i + 1);
+    scrollToTop();
+  }
+
+  function handleBack() {
+    setPageWarning("");
+    setPageIndex((i) => i - 1);
+    scrollToTop();
+  }
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    // Pressing Enter in a text box on an earlier page moves on rather than submitting
+    if (!isLastPage) {
+      e.preventDefault();
+      handleNext();
+      return;
+    }
+
+    const newErrors = validate(questions);
     if (Object.keys(newErrors).length > 0) {
       e.preventDefault();
       setErrors(newErrors);
+      // Shouldn't happen as each page is checked on Next, but jump back if so
+      const errorPage = pages.findIndex((p) => p.questions.some((q) => newErrors[q.id]));
+      if (errorPage !== pageIndex) {
+        setPageIndex(errorPage);
+        scrollToTop();
+      } else {
+        scrollToFirstError(newErrors);
+      }
+      if (pages.length > 1) {
+        setPageWarning("Please answer the required questions before submitting.");
+      }
       return;
     }
 
@@ -147,6 +191,7 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, init
 
   return (
     <form
+      ref={formRef}
       method="POST"
       action="/api/submit-survey"
       encType="application/x-www-form-urlencoded"
@@ -154,10 +199,42 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, init
       className="flex flex-col gap-6"
     >
       <input ref={payloadRef} type="hidden" name="payload" />
-      {questions.map((q, i) => (
-        <div key={q.id} className="bg-white rounded-xl border border-stone-200 p-6">
+
+      {pages.length > 1 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-medium text-stone-500">
+            Section {pageIndex + 1} of {pages.length}
+          </p>
+          <div
+            className="h-1.5 rounded-full bg-stone-200 overflow-hidden"
+            role="progressbar"
+            aria-valuemin={1}
+            aria-valuemax={pages.length}
+            aria-valuenow={pageIndex + 1}
+          >
+            <div
+              className="h-full bg-brand-500 transition-all"
+              style={{ width: `${((pageIndex + 1) / pages.length) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {page.section && (
+        <div>
+          <h2 className="text-2xl font-semibold text-stone-900">{page.section.text}</h2>
+          {page.section.instructions && (
+            <p className="text-stone-600 text-base leading-relaxed mt-2 whitespace-pre-line">
+              {page.section.instructions}
+            </p>
+          )}
+        </div>
+      )}
+
+      {page.questions.map((q) => (
+        <div key={q.id} id={`question-${q.id}`} className="bg-white rounded-xl border border-stone-200 p-6">
           <p className="text-base font-medium text-stone-900 mb-1">
-            <span className="text-stone-400 font-normal text-sm mr-2">{i + 1}.</span>
+            <span className="text-stone-400 font-normal text-sm mr-2">{questionNumbers[q.id]}.</span>
             {q.text}
             {q.required && <span className="text-red-500 ml-1">*</span>}
           </p>
@@ -318,9 +395,30 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, init
         {initialError && (
           <p className="text-sm text-red-600">{initialError}</p>
         )}
-        <Button type="submit" size="lg">
-          Submit
-        </Button>
+        {pageWarning && (
+          <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2" role="alert">
+            {pageWarning}
+          </p>
+        )}
+        <div className="flex w-full items-center justify-end gap-3">
+          {pageIndex > 0 && (
+            <Button type="button" variant="secondary" size="lg" onClick={handleBack} className="mr-auto">
+              Back
+            </Button>
+          )}
+          {/* Distinct keys so React swaps the element rather than turning the
+              clicked Next button into a submit button mid-click (which would
+              submit the form as soon as the last page appears) */}
+          {isLastPage ? (
+            <Button key="submit" type="submit" size="lg">
+              Submit
+            </Button>
+          ) : (
+            <Button key="next" type="button" size="lg" onClick={handleNext}>
+              Next
+            </Button>
+          )}
+        </div>
       </div>
     </form>
   );

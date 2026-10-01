@@ -15,6 +15,7 @@ const questionSchema = z.object({
     "MATRIX",
     "RANKING",
     "DATE",
+    "SECTION",
   ]),
   text: z.string().min(1).max(500),
   instructions: z.string().max(1000).nullable().optional(),
@@ -42,6 +43,8 @@ export async function POST(
   const count = await prisma.question.count({ where: { questionnaireId } });
 
   const { config, options, ...rest } = parsed.data;
+  // Section breaks are headings, never answerable
+  if (rest.type === "SECTION") rest.required = false;
   const question = await prisma.question.create({
     data: {
       questionnaireId,

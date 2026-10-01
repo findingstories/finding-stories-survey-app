@@ -38,9 +38,16 @@ export function ResultsCharts({ questions, responses }: Props) {
   return (
     <div className="flex flex-col gap-6">
       <h2 className="text-lg font-semibold text-stone-900">Summary</h2>
-      {questions.map((q) => (
-        <QuestionSummary key={q.id} question={q} responses={responses} />
-      ))}
+      {questions.map((q) =>
+        q.type === "SECTION" ? (
+          <div key={q.id} className="pt-4">
+            <h3 className="text-base font-semibold text-stone-900">{q.text}</h3>
+            {q.instructions && <p className="text-sm text-stone-500 mt-1">{q.instructions}</p>}
+          </div>
+        ) : (
+          <QuestionSummary key={q.id} question={q} responses={responses} />
+        )
+      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { QuestionForm } from "./question-form";
 import { SortableQuestion } from "./sortable-question";
 import { CoverPageSettings } from "./cover-page-settings";
+import { SectionForm } from "./section-form";
 import {
   DndContext,
   closestCenter,
@@ -37,6 +38,7 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  Rows3,
 } from "lucide-react";
 
 interface Props {
@@ -69,7 +71,7 @@ export function QuestionnaireEditor({ questionnaire, shareUrl, coverImageVersion
   );
   const [savingSettings, setSavingSettings] = useState(false);
 
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [adding, setAdding] = useState<"question" | "section" | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [toggling, setToggling] = useState(false);
@@ -163,7 +165,7 @@ export function QuestionnaireEditor({ questionnaire, shareUrl, coverImageVersion
 
   function handleQuestionAdded(q: Question) {
     setQuestions((prev) => [...prev, q]);
-    setShowAddForm(false);
+    setAdding(null);
   }
 
   function handleQuestionUpdated(updated: Question) {
@@ -292,7 +294,15 @@ export function QuestionnaireEditor({ questionnaire, shareUrl, coverImageVersion
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={questions.map((q) => q.id)} strategy={verticalListSortingStrategy}>
             {questions.map((q) =>
-              editingId === q.id ? (
+              editingId === q.id && q.type === "SECTION" ? (
+                <SectionForm
+                  key={q.id}
+                  questionnaireId={questionnaire.id}
+                  existingSection={q}
+                  onSaved={handleQuestionUpdated}
+                  onCancel={() => setEditingId(null)}
+                />
+              ) : editingId === q.id ? (
                 <QuestionForm
                   key={q.id}
                   questionnaireId={questionnaire.id}
@@ -312,26 +322,42 @@ export function QuestionnaireEditor({ questionnaire, shareUrl, coverImageVersion
           </SortableContext>
         </DndContext>
 
-        {showAddForm ? (
+        {adding === "question" ? (
           <QuestionForm
             questionnaireId={questionnaire.id}
             onSaved={handleQuestionAdded}
-            onCancel={() => setShowAddForm(false)}
+            onCancel={() => setAdding(null)}
+          />
+        ) : adding === "section" ? (
+          <SectionForm
+            questionnaireId={questionnaire.id}
+            onSaved={handleQuestionAdded}
+            onCancel={() => setAdding(null)}
           />
         ) : (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="flex items-center justify-center gap-2 py-4 border-2 border-dashed border-stone-200 rounded-xl text-sm text-stone-400 hover:border-brand-300 hover:text-brand-600 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add question
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3">
+            <button
+              onClick={() => setAdding("question")}
+              className="flex items-center justify-center gap-2 py-4 border-2 border-dashed border-stone-200 rounded-xl text-sm text-stone-400 hover:border-brand-300 hover:text-brand-600 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add question
+            </button>
+            <button
+              onClick={() => setAdding("section")}
+              className="flex items-center justify-center gap-2 py-4 border-2 border-dashed border-stone-200 rounded-xl text-sm text-stone-400 hover:border-brand-300 hover:text-brand-600 transition-colors"
+              title="Start a new page with a heading and supporting text"
+            >
+              <Rows3 className="w-4 h-4" />
+              Add section
+            </button>
+          </div>
         )}
       </div>
 
       {questions.length > 0 && (
         <p className="text-xs text-stone-400 text-center mb-4">
-          Drag questions to reorder · Changes save automatically
+          Drag questions and sections to reorder · Changes save automatically
         </p>
       )}
 

@@ -23,6 +23,7 @@ enum QuestionType {
   MATRIX
   RANKING
   DATE
+  SECTION
 }
 
 model User {

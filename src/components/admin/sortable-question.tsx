@@ -20,6 +20,7 @@ const TYPE_LABELS: Record<string, string> = {
   MATRIX: "Matrix",
   RANKING: "Ranking",
   DATE: "Date",
+  SECTION: "Section",
 };
 
 interface Props {
@@ -48,6 +49,7 @@ export function SortableQuestion({ question, onEdit, onDelete }: Props) {
     onDelete(question.id);
   }
 
+  const section = question.type === "SECTION";
   const options = [
     ...(Array.isArray(question.options) ? (question.options as string[]) : []),
     ...(allowsOther(question) ? [OTHER_OPTION] : []),
@@ -57,7 +59,11 @@ export function SortableQuestion({ question, onEdit, onDelete }: Props) {
     <div
       ref={setNodeRef}
       style={style}
-      className="bg-white rounded-xl border border-stone-200 p-4 flex items-start gap-3"
+      className={
+        section
+          ? "bg-brand-50 rounded-xl border border-brand-200 p-4 mt-3 flex items-start gap-3"
+          : "bg-white rounded-xl border border-stone-200 p-4 flex items-start gap-3"
+      }
     >
       <button
         className="mt-1 cursor-grab active:cursor-grabbing text-stone-300 hover:text-stone-500 touch-none"
@@ -82,7 +88,17 @@ export function SortableQuestion({ question, onEdit, onDelete }: Props) {
             <span className="text-xs text-stone-400">Required</span>
           )}
         </div>
-        <p className="text-sm text-stone-900 font-medium">{question.text}</p>
+        {section ? (
+          <>
+            <p className="text-base text-stone-900 font-semibold">{question.text}</p>
+            {question.instructions && (
+              <p className="text-xs text-stone-500 mt-1 line-clamp-2">{question.instructions}</p>
+            )}
+            <p className="text-xs text-brand-700 mt-1">Starts a new page</p>
+          </>
+        ) : (
+          <p className="text-sm text-stone-900 font-medium">{question.text}</p>
+        )}
         {options.length > 0 && (
           <p className="text-xs text-stone-400 mt-1">
             {options.slice(0, 4).join(" · ")}
@@ -109,10 +125,12 @@ export function SortableQuestion({ question, onEdit, onDelete }: Props) {
       <Dialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
-        title="Delete question?"
+        title={section ? "Delete section?" : "Delete question?"}
       >
         <p className="text-sm text-stone-600 mb-6">
-          This will remove the question and all collected answers for it.
+          {section
+            ? "This removes the section heading and page break. Its questions stay, and join the previous page."
+            : "This will remove the question and all collected answers for it."}
         </p>
         <div className="flex gap-3 justify-end">
           <Button variant="secondary" onClick={() => setConfirmDelete(false)}>

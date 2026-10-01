@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { isEmptyRichText } from "@/lib/rich-text";
 import { DEFAULT_COVER_BUTTON_LABEL } from "@/lib/cover";
+import { randomisedOptionOrders } from "@/lib/shuffle";
 
 export async function generateMetadata({
   params,
@@ -124,6 +125,7 @@ export default async function PublicQuestionnairePage({
           questionnaireId={questionnaire.id}
           slug={slug}
           questions={questionnaire.questions}
+          optionOrders={randomisedOptionOrders(questionnaire.questions)}
           initialError={error}
         />
       </div>
