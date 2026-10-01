@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { sanitizeRichText } from "@/lib/rich-text";
 
 const updateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -16,6 +17,10 @@ const updateSchema = z.object({
   completionMessage: z.string().max(1000).nullable().optional(),
   showFillAgain: z.boolean().optional(),
   alertEmails: z.array(z.string().email()).optional(),
+  coverEnabled: z.boolean().optional(),
+  coverTitle: z.string().max(200).nullable().optional(),
+  coverBody: z.string().max(50000).nullable().optional(),
+  coverButtonLabel: z.string().max(60).nullable().optional(),
 });
 
 export async function PATCH(
@@ -35,9 +40,15 @@ export async function PATCH(
   }
 
   try {
+    const { coverBody, ...rest } = parsed.data;
     const questionnaire = await prisma.questionnaire.update({
       where: { id },
-      data: parsed.data,
+      data: {
+        ...rest,
+        ...(coverBody !== undefined && {
+          coverBody: coverBody === null ? null : sanitizeRichText(coverBody),
+        }),
+      },
     });
     return Response.json(questionnaire);
   } catch {

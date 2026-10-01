@@ -11,7 +11,10 @@ export default async function EditPage({
 
   const questionnaire = await prisma.questionnaire.findUnique({
     where: { id },
-    include: { questions: { orderBy: { order: "asc" } } },
+    include: {
+      questions: { orderBy: { order: "asc" } },
+      coverImage: { select: { updatedAt: true } },
+    },
   });
 
   if (!questionnaire) notFound();
@@ -22,6 +25,7 @@ export default async function EditPage({
     <QuestionnaireEditor
       questionnaire={questionnaire}
       shareUrl={`${baseUrl}/survey/${questionnaire.slug}`}
+      coverImageVersion={questionnaire.coverImage?.updatedAt.getTime() ?? null}
     />
   );
 }

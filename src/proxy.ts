@@ -8,7 +8,10 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
 
   const publicPaths = ["/login", "/invite/", "/survey/", "/setup", "/forgot-password", "/reset-password", "/api/auth", "/api/setup", "/api/responses", "/api/invitations/", "/api/password-reset", "/api/submit-survey"];
-  const isPublic = publicPaths.some((p) => pathname.startsWith(p));
+  // Survey cover images are shown to respondents; uploading still needs a login
+  const isPublicCoverImage =
+    req.method === "GET" && /^\/api\/questionnaires\/[^/]+\/cover-image$/.test(pathname);
+  const isPublic = publicPaths.some((p) => pathname.startsWith(p)) || isPublicCoverImage;
 
   if (!req.auth && !isPublic) {
     return NextResponse.redirect(new URL("/login", req.url));

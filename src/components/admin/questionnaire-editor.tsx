@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { QuestionForm } from "./question-form";
 import { SortableQuestion } from "./sortable-question";
+import { CoverPageSettings } from "./cover-page-settings";
 import {
   DndContext,
   closestCenter,
@@ -41,9 +42,10 @@ import {
 interface Props {
   questionnaire: Questionnaire & { questions: Question[] };
   shareUrl: string;
+  coverImageVersion: number | null;
 }
 
-export function QuestionnaireEditor({ questionnaire, shareUrl }: Props) {
+export function QuestionnaireEditor({ questionnaire, shareUrl, coverImageVersion }: Props) {
   const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>(questionnaire.questions);
   const [isOpen, setIsOpen] = useState(questionnaire.isOpen);
@@ -276,6 +278,14 @@ export function QuestionnaireEditor({ questionnaire, shareUrl }: Props) {
           <Badge variant={isOpen ? "green" : "red"}>{isOpen ? "Open" : "Closed"}</Badge>
         </div>
       </div>
+
+      <CoverPageSettings
+        questionnaireId={questionnaire.id}
+        surveyTitle={title}
+        surveyUrl={shareUrl.replace(questionnaire.slug, slug)}
+        initial={questionnaire}
+        initialImageVersion={coverImageVersion}
+      />
 
       {/* Questions */}
       <div className="flex flex-col gap-3 mb-4">

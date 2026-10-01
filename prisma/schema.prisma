@@ -67,6 +67,11 @@ model Questionnaire {
   completionMessage String?
   showFillAgain     Boolean    @default(true)
   alertEmails       Json?
+  coverEnabled      Boolean    @default(false)
+  coverTitle        String?
+  coverBody         String?
+  coverButtonLabel  String?
+  coverImage        CoverImage?
   createdById       String
   createdBy         User       @relation(fields: [createdById], references: [id])
   createdAt         DateTime   @default(now())
@@ -87,6 +92,15 @@ model Question {
   options         Json?
   config          Json?
   answers         Answer[]
+}
+
+model CoverImage {
+  id              String        @id @default(cuid())
+  questionnaireId String        @unique
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  data            Bytes
+  mimeType        String
+  updatedAt       DateTime      @updatedAt
 }
 
 model Response {

@@ -15,7 +15,10 @@ export async function POST(
 
   const original = await prisma.questionnaire.findUnique({
     where: { id },
-    include: { questions: { orderBy: { order: "asc" } } },
+    include: {
+      questions: { orderBy: { order: "asc" } },
+      coverImage: { select: { data: true, mimeType: true } },
+    },
   });
 
   if (!original) {
@@ -38,6 +41,15 @@ export async function POST(
       completionMessage: original.completionMessage,
       showFillAgain: original.showFillAgain,
       alertEmails: original.alertEmails ?? [],
+      coverEnabled: original.coverEnabled,
+      coverTitle: original.coverTitle,
+      coverBody: original.coverBody,
+      coverButtonLabel: original.coverButtonLabel,
+      ...(original.coverImage && {
+        coverImage: {
+          create: { data: original.coverImage.data, mimeType: original.coverImage.mimeType },
+        },
+      }),
       createdById: session.user.id,
       questions: {
         create: original.questions.map((q) => ({

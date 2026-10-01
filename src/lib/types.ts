@@ -24,6 +24,10 @@ export type Questionnaire = {
   completionMessage: string | null;
   showFillAgain: boolean;
   alertEmails: unknown;
+  coverEnabled: boolean;
+  coverTitle: string | null;
+  coverBody: string | null;
+  coverButtonLabel: string | null;
   createdById: string;
   createdAt: Date;
   updatedAt: Date;
