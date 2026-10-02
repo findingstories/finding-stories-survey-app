@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useLayoutEffect } from "react";
 import type { Question } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { allowsOther, maxSelections, OTHER_OPTION } from "@/lib/answers";
@@ -51,6 +51,24 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
   const [pageWarning, setPageWarning] = useState("");
   const page = pages[pageIndex];
   const formRef = useRef<HTMLFormElement>(null);
+  const pageTopRef = useRef<HTMLDivElement>(null);
+  const isFirstRender = useRef(true);
+
+  // After moving to another section, jump to the very top of the page once the
+  // new section is in the DOM (before it's painted), so respondents never land
+  // part-way down. Focus moves to the top too, for keyboard/screen reader users.
+  useLayoutEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    window.scrollTo(0, 0);
+    pageTopRef.current?.focus({ preventScroll: true });
+    // Repeat on the next frame in case the layout shifts again (e.g. the
+    // mobile keyboard finishing closing after Next is tapped)
+    const frame = requestAnimationFrame(() => window.scrollTo(0, 0));
+    return () => cancelAnimationFrame(frame);
+  }, [pageIndex]);
 
   // Skip logic hides questions (and whole pages) based on the answers so far;
   // changing an answer back makes them reappear
@@ -139,10 +157,6 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
     return newErrors;
   }
 
-  function scrollToTop() {
-    formRef.current?.parentElement?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   function scrollToFirstError(newErrors: Record<string, string>) {
     const firstId = questions.find((q) => newErrors[q.id])?.id;
     if (firstId) document.getElementById(`question-${firstId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -158,13 +172,11 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
     }
     setPageWarning("");
     setPageIndex(nextPageIndex);
-    scrollToTop();
   }
 
   function handleBack() {
     setPageWarning("");
     setPageIndex(prevPageIndex);
-    scrollToTop();
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -183,7 +195,6 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
       const errorPage = pages.findIndex((p) => p.questions.some((q) => newErrors[q.id]));
       if (errorPage !== pageIndex) {
         setPageIndex(errorPage);
-        scrollToTop();
       } else {
         scrollToFirstError(newErrors);
       }
@@ -216,6 +227,9 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
       className="flex flex-col gap-6"
     >
       <input ref={payloadRef} type="hidden" name="payload" />
+      <div ref={pageTopRef} tabIndex={-1} className="sr-only" aria-live="polite">
+        {pages.length > 1 && `Section ${position + 1} of ${visiblePageIndexes.length}`}
+      </div>
 
       {pages.length > 1 && (
         <div className="flex flex-col gap-2">
