@@ -11,6 +11,8 @@ import { QuestionForm } from "./question-form";
 import { SortableQuestion } from "./sortable-question";
 import { CoverPageSettings } from "./cover-page-settings";
 import { SectionForm } from "./section-form";
+import { RichTextEditor } from "./rich-text-editor";
+import { isRichText, plainTextToHtml } from "@/lib/rich-text-format";
 import {
   DndContext,
   closestCenter,
@@ -62,7 +64,11 @@ export function QuestionnaireEditor({ questionnaire, shareUrl, coverImageVersion
 
   // Settings panel
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [completionMessage, setCompletionMessage] = useState(questionnaire.completionMessage ?? "");
+  // Older messages are plain text; open them in the editor as paragraphs
+  const [completionMessage, setCompletionMessage] = useState(() => {
+    const message = questionnaire.completionMessage ?? "";
+    return isRichText(message) ? message : plainTextToHtml(message);
+  });
   const [showFillAgain, setShowFillAgain] = useState(questionnaire.showFillAgain);
   const [alertEmailsRaw, setAlertEmailsRaw] = useState(
     Array.isArray(questionnaire.alertEmails)
@@ -381,13 +387,14 @@ export function QuestionnaireEditor({ questionnaire, shareUrl, coverImageVersion
               <label className="text-sm font-medium text-stone-700">
                 Completion message
               </label>
-              <p className="text-xs text-stone-400">Shown on the thank-you page after submission.</p>
-              <textarea
-                className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"
-                rows={3}
+              <p className="text-xs text-stone-400">
+                Shown on the thank-you page after submission. Leave empty to show{" "}
+                {`“Your response to ${title} has been recorded.”`}
+              </p>
+              <RichTextEditor
                 value={completionMessage}
-                onChange={(e) => setCompletionMessage(e.target.value)}
-                placeholder="Thank you for taking the time to fill this in. Your response has been recorded."
+                onChange={setCompletionMessage}
+                minHeightClass="min-h-24"
               />
             </div>
 

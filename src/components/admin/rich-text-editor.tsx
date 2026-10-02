@@ -20,9 +20,10 @@ import {
 interface Props {
   value: string;
   onChange: (html: string) => void;
+  minHeightClass?: string;
 }
 
-export function RichTextEditor({ value, onChange }: Props) {
+export function RichTextEditor({ value, onChange, minHeightClass = "min-h-48" }: Props) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -36,7 +37,7 @@ export function RichTextEditor({ value, onChange }: Props) {
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: "rich-text min-h-48 px-3 py-2 text-sm text-stone-900 focus:outline-none",
+        class: `rich-text ${minHeightClass} px-3 py-2 text-sm text-stone-900 focus:outline-none`,
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -111,6 +112,8 @@ function Toolbar({ editor }: { editor: Editor }) {
             aria-label={b.label}
             aria-pressed={b.active}
             disabled={"disabled" in b ? b.disabled : false}
+            // Keep focus (and the selection) in the editor while clicking the toolbar
+            onMouseDown={(e) => e.preventDefault()}
             onClick={b.run}
             className={cn(
               "p-1.5 rounded-md transition-colors disabled:opacity-30",

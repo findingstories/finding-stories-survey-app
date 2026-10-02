@@ -49,3 +49,7 @@ body {
 .rich-text blockquote { border-left: 3px solid var(--color-stone-200); padding-left: 1em; color: var(--color-stone-600); }
 .rich-text strong { font-weight: 600; }
 .rich-text hr { border-color: var(--color-stone-200); }
+/* Centred layouts (thank-you page): keep list markers next to their text */
+.rich-text-centered ul,
+.rich-text-centered ol { list-style-position: inside; padding-left: 0; }
+.rich-text-centered li > p { display: inline; }
