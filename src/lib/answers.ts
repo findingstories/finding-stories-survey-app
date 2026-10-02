@@ -20,6 +20,26 @@ export function allowsOther(question: QuestionLike) {
   );
 }
 
+// Options pinned to the bottom of a choice question. They're never shuffled.
+export function pinnedOptions(question: QuestionLike & { options?: unknown }): string[] {
+  if (!isChoiceType(question.type)) return [];
+  const pinned = (question.config as { pinnedOptions?: unknown } | null)?.pinnedOptions;
+  const options = Array.isArray(question.options) ? (question.options as string[]) : [];
+  return Array.isArray(pinned) ? options.filter((o) => pinned.includes(o)) : [];
+}
+
+// Options in the order respondents see them: the (possibly shuffled) options,
+// then "Other", then any pinned options in the order they were listed.
+export function displayOptions(
+  question: QuestionLike & { options?: unknown },
+  shuffled?: string[]
+): string[] {
+  const pinned = pinnedOptions(question);
+  const main = (shuffled ?? (Array.isArray(question.options) ? (question.options as string[]) : []))
+    .filter((o) => !pinned.includes(o));
+  return [...main, ...(allowsOther(question) ? [OTHER_OPTION] : []), ...pinned];
+}
+
 // Selection limit for multiple-answer questions; undefined means no limit.
 export function maxSelections(question: QuestionLike): number | undefined {
   if (question.type !== "CHECKBOX") return undefined;

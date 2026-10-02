@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { OTHER_OPTION } from "@/lib/answers";
 import { END_SURVEY } from "@/lib/skip-logic";
-import { Plus, X } from "lucide-react";
+import { Pin, Plus, X } from "lucide-react";
 
 const QUESTION_TYPES = [
   { value: "SHORT_TEXT", label: "Short text" },
@@ -46,6 +46,7 @@ interface QuestionConfig {
   allowOther?: boolean;
   maxSelections?: number;
   skipLogic?: Record<string, string>;
+  pinnedOptions?: string[];
 }
 
 export function QuestionForm({
@@ -84,6 +85,7 @@ export function QuestionForm({
   }
   function removeOption(i: number) {
     setSkipRule(options[i], "");
+    setConfig((c) => ({ ...c, pinnedOptions: c.pinnedOptions?.filter((o) => o !== options[i]) }));
     setOptions((prev) => prev.filter((_, idx) => idx !== i));
   }
   function updateOption(i: number, val: string) {
@@ -96,7 +98,26 @@ export function QuestionForm({
         return { ...c, skipLogic: { ...next, [val]: rule } };
       });
     }
+    // Pinned options are also keyed by text
+    if (config.pinnedOptions?.includes(options[i])) {
+      setConfig((c) => ({
+        ...c,
+        pinnedOptions: c.pinnedOptions?.map((o) => (o === options[i] ? val : o)),
+      }));
+    }
     setOptions((prev) => prev.map((o, idx) => (idx === i ? val : o)));
+  }
+
+  function togglePinned(option: string) {
+    setConfig((c) => {
+      const pinned = c.pinnedOptions ?? [];
+      return {
+        ...c,
+        pinnedOptions: pinned.includes(option)
+          ? pinned.filter((o) => o !== option)
+          : [...pinned, option],
+      };
+    });
   }
 
   function setSkipRule(option: string, target: string) {
@@ -167,6 +188,13 @@ export function QuestionForm({
       }
       if (type === "CHECKBOX" && config.maxSelections !== undefined) {
         body.config = { ...(body.config as object), maxSelections: config.maxSelections };
+      }
+      if (isChoice) {
+        const finalOptions = body.options as string[];
+        const pinnedOptions = (config.pinnedOptions ?? []).filter((o) => finalOptions.includes(o));
+        if (pinnedOptions.length > 0) {
+          body.config = { ...(body.config as object), pinnedOptions };
+        }
       }
       if (type === "MULTIPLE_CHOICE") {
         // Keep rules only for options that still exist and targets still ahead
@@ -321,6 +349,27 @@ export function QuestionForm({
                 onChange={(e) => updateOption(i, e.target.value)}
                 placeholder={type === "RANKING" ? `Item ${i + 1}` : `Option ${i + 1}`}
               />
+              {isChoice && (
+                <button
+                  type="button"
+                  onClick={() => togglePinned(opt)}
+                  title={
+                    config.pinnedOptions?.includes(opt)
+                      ? "Pinned to the bottom — click to unpin"
+                      : "Pin to the bottom (never shuffled)"
+                  }
+                  aria-label={`Pin "${opt}" to the bottom`}
+                  aria-pressed={config.pinnedOptions?.includes(opt) ?? false}
+                  className={cn(
+                    "p-1.5 rounded-md transition-colors",
+                    config.pinnedOptions?.includes(opt)
+                      ? "text-brand-600 bg-brand-50"
+                      : "text-stone-300 hover:text-stone-600"
+                  )}
+                >
+                  <Pin className="w-4 h-4" />
+                </button>
+              )}
               <button onClick={() => removeOption(i)} className="p-1.5 text-stone-400 hover:text-red-500 transition-colors">
                 <X className="w-4 h-4" />
               </button>
@@ -333,6 +382,13 @@ export function QuestionForm({
             <Plus className="w-4 h-4" />
             {type === "RANKING" ? "Add item" : "Add option"}
           </button>
+          {isChoice && (
+            <p className="text-xs text-stone-400">
+              <Pin className="w-3 h-3 inline -mt-0.5" />{" "}Pinned options always appear at the bottom
+              (after &lsquo;{OTHER_OPTION}&rsquo;) and aren&rsquo;t shuffled when options are randomised,
+              e.g. &ldquo;Prefer not to say&rdquo;.
+            </p>
+          )}
         </div>
       )}
 
@@ -442,7 +498,7 @@ export function QuestionForm({
               className="w-4 h-4 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
             />
             <span className="text-sm text-stone-700">
-              Add an &lsquo;{OTHER_OPTION}&rsquo; option with a free-text answer (always shown last)
+              Add an &lsquo;{OTHER_OPTION}&rsquo; option with a free-text answer (always shown below the options, above any pinned ones)
             </span>
           </label>
           {otherClash && (

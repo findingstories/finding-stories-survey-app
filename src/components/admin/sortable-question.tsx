@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { GripVertical, Edit2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
-import { allowsOther, maxSelections, OTHER_OPTION } from "@/lib/answers";
+import { displayOptions, maxSelections } from "@/lib/answers";
 import { isValidSkipTarget, skipRules } from "@/lib/skip-logic";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -55,10 +55,7 @@ export function SortableQuestion({ question, allItems, onEdit, onDelete }: Props
   const rules = Object.values(skipRules(question));
   // Reordering or deleting questions can leave a rule pointing backwards or nowhere
   const brokenSkip = rules.some((t) => !isValidSkipTarget(allItems, question.id, t));
-  const options = [
-    ...(Array.isArray(question.options) ? (question.options as string[]) : []),
-    ...(allowsOther(question) ? [OTHER_OPTION] : []),
-  ];
+  const options = displayOptions(question);
 
   return (
     <div

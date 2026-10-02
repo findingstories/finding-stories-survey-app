@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef, useLayoutEffect } from "react";
 import type { Question } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { allowsOther, maxSelections, OTHER_OPTION } from "@/lib/answers";
+import { allowsOther, displayOptions, maxSelections, OTHER_OPTION } from "@/lib/answers";
 import { isSection, splitIntoPages, type Page } from "@/lib/sections";
 import { hiddenItemIds } from "@/lib/skip-logic";
 import {
@@ -306,11 +306,8 @@ export function PublicQuestionnaireForm({ questionnaireId, slug, questions, opti
                     </span>
                   </p>
                 )}
-                {[
-                  ...(optionOrders[q.id] ?? (Array.isArray(q.options) ? (q.options as string[]) : [])),
-                  // "Other" is always last, even when options are randomised
-                  ...(allowsOther(q) ? [OTHER_OPTION] : []),
-                ].map((opt) => {
+                {/* Shuffled options, then "Other", then pinned options — even when randomised */}
+                {displayOptions(q, optionOrders[q.id]).map((opt) => {
                   const isCheckbox = q.type === "CHECKBOX";
                   const selected = answers[q.id]?.selectedOptions?.includes(opt) ?? false;
                   const isOther = opt === OTHER_OPTION && allowsOther(q);
